@@ -6,6 +6,7 @@
 package com.amazonaws.services.chime.sdk.meetings.audiovideo
 
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.metric.MetricsObserver
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoSource
 
 /**
  * [AudioVideoControllerFacade] manages the signaling and peer connections.
@@ -48,6 +49,11 @@ interface AudioVideoControllerFacade {
      * @param observer: [MetricsObserver] - The observer to unsubscribe from events with.
      */
     fun removeMetricsObserver(observer: MetricsObserver)
+
+    /**
+     *
+     */
+    fun chooseVideoSource(source: VideoSource)
 
     /**
      * Start local video.

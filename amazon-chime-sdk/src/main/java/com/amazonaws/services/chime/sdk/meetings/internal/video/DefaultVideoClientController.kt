@@ -8,8 +8,10 @@ package com.amazonaws.services.chime.sdk.meetings.internal.video
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.opengl.EGLContext
 import androidx.core.content.ContextCompat
 import com.amazonaws.services.chime.sdk.BuildConfig
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoSource
 import com.amazonaws.services.chime.sdk.meetings.session.MeetingSessionConfiguration
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 import com.google.gson.Gson
@@ -21,13 +23,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
-class DefaultVideoClientController constructor(
+class DefaultVideoClientController(
     private val context: Context,
     private val logger: Logger,
     private val videoClientStateController: VideoClientStateController,
     private val videoClientObserver: VideoClientObserver,
     private val configuration: MeetingSessionConfiguration,
-    private val videoClientFactory: VideoClientFactory
+    private val videoClientFactory: VideoClientFactory,
+    sharedEglContext: EGLContext?
 ) : VideoClientController,
     VideoClientLifecycleHandler {
 
@@ -122,6 +125,12 @@ class DefaultVideoClientController constructor(
             ?.filter { it.identifier != (getActiveCamera()?.identifier) }
             ?.elementAtOrNull(0)
         nextDevice?.let { videoClient?.currentDevice = it }
+    }
+
+    override fun chooseVideoSource(source: VideoSource) {
+        val adapter = VideoClientSourceAdapter(source, logger)
+        videoClient?.setExternalVideoSource(adapter)
+        return
     }
 
     private fun setFrontCameraAsCurrentDevice() {

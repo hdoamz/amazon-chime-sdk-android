@@ -14,11 +14,13 @@ import com.amazonaws.services.chime.sdk.meetings.audiovideo.audio.activespeakerd
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.audio.activespeakerpolicy.ActiveSpeakerPolicy
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.metric.MetricsObserver
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoRenderView
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoSource
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoTileController
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoTileObserver
 import com.amazonaws.services.chime.sdk.meetings.device.DeviceChangeObserver
 import com.amazonaws.services.chime.sdk.meetings.device.DeviceController
 import com.amazonaws.services.chime.sdk.meetings.device.MediaDevice
+import com.amazonaws.services.chime.sdk.meetings.device.VideoDeviceFormat
 import com.amazonaws.services.chime.sdk.meetings.realtime.RealtimeControllerFacade
 import com.amazonaws.services.chime.sdk.meetings.realtime.RealtimeObserver
 import com.amazonaws.services.chime.sdk.meetings.realtime.datamessage.DataMessageObserver
@@ -73,6 +75,10 @@ class DefaultAudioVideoFacade(
 
     override fun stop() {
         audioVideoController.stop()
+    }
+
+    override fun chooseVideoSource(source: VideoSource) {
+        audioVideoController.chooseVideoSource(source)
     }
 
     override fun startLocalVideo() {
@@ -133,6 +139,18 @@ class DefaultAudioVideoFacade(
 
     override fun switchCamera() {
         deviceController.switchCamera()
+    }
+
+    override fun listVideoDevices(): List<MediaDevice> {
+        return deviceController.listVideoDevices()
+    }
+
+    override fun getSupportedVideoCaptureFormats(mediaDevice: MediaDevice): List<VideoDeviceFormat> {
+        return deviceController.getSupportedVideoCaptureFormats(mediaDevice)
+    }
+
+    override fun chooseVideoDevice(mediaDevice: MediaDevice, format: VideoDeviceFormat) {
+        deviceController.chooseVideoDevice(mediaDevice, format)
     }
 
     override fun addDeviceChangeObserver(observer: DeviceChangeObserver) {

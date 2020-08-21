@@ -5,6 +5,8 @@
 
 package com.amazonaws.services.chime.sdk.meetings.device
 
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoSource
+
 /**
  * [DeviceController] keeps track of the devices being used for audio device
  * (e.g. built-in speaker), video input (e.g. camera)).
@@ -12,7 +14,7 @@ package com.amazonaws.services.chime.sdk.meetings.device
  * Changes in device availability are broadcast to any registered
  * [DeviceChangeObserver].
  */
-interface DeviceController {
+interface DeviceController : VideoDeviceController {
     /**
      * Lists currently available audio devices.
      *
@@ -26,18 +28,6 @@ interface DeviceController {
      * @param mediaDevice the audio device selected to use.
      */
     fun chooseAudioDevice(mediaDevice: MediaDevice)
-
-    /**
-     * Get the active local camera in the meeting, return null if there isn't any.
-     *
-     * @return the active local camera
-     */
-    fun getActiveCamera(): MediaDevice?
-
-    /**
-     * Switch between front and back camera in the meeting.
-     */
-    fun switchCamera()
 
     /**
      * Adds an observer to receive callbacks about device changes.

@@ -5,6 +5,7 @@
 
 package com.amazonaws.services.chime.sdk.meetings.internal.video
 
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoSource
 import com.amazonaws.services.chime.sdk.meetings.session.MeetingSessionConfiguration
 import com.xodee.client.video.VideoDevice
 
@@ -54,6 +55,11 @@ interface VideoClientController {
      * Switches the currently active camera.
      */
     fun switchCamera()
+
+    /**
+     *
+     */
+    fun chooseVideoSource(source: VideoSource)
 
     /**
      * Pause or resume a remote video tile.

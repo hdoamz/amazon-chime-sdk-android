@@ -44,9 +44,6 @@ allprojects {
     repositories {
         google()
         jcenter()
-        flatDir {
-            dirs '../amazon-chime-sdk/libs'
-        }
     }
     project.ext {
         chimeBuildToolsVersion = "29.0.2"

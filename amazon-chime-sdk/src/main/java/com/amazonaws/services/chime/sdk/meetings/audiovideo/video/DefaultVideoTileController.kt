@@ -5,6 +5,7 @@
 
 package com.amazonaws.services.chime.sdk.meetings.audiovideo.video
 
+import android.opengl.EGLContext
 import com.amazon.chime.webrtc.EglBase
 import com.amazon.chime.webrtc.VideoRenderer
 import com.amazonaws.services.chime.sdk.meetings.internal.utils.ObserverUtils
@@ -14,7 +15,8 @@ import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 class DefaultVideoTileController(
     private val logger: Logger,
     private val videoClientController: VideoClientController,
-    private val videoTileFactory: VideoTileFactory
+    private val videoTileFactory: VideoTileFactory,
+    sharedEglContext: EGLContext?
 ) : VideoTileController {
     // A map of tile id to VideoTile to determine if VideoTileController is adding, removing, pausing, or rendering
     private val videoTileMap = mutableMapOf<Int, VideoTile>()
@@ -41,6 +43,10 @@ class DefaultVideoTileController(
         attendeeId: String?,
         pauseState: VideoPauseState
     ) {
+        logger.info(
+            TAG,
+            "onReceiveFrame with videoId = $videoId & attendeeId = $attendeeId"
+        )
         /**
          * There are FOUR possible outcomes:
          * 1) Create - Someone has started sharing video

@@ -5,6 +5,7 @@
 
 package com.amazonaws.services.chime.sdk.meetings.device
 
+import android.hardware.camera2.CameraMetadata
 import android.media.AudioDeviceInfo
 
 /**
@@ -35,6 +36,7 @@ enum class MediaDeviceType {
     AUDIO_HANDSET,
     VIDEO_FRONT_CAMERA,
     VIDEO_BACK_CAMERA,
+    VIDEO_EXTERNAL_CAMERA,
     OTHER;
 
     companion object {
@@ -47,6 +49,15 @@ enum class MediaDeviceType {
                 AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> AUDIO_BUILTIN_SPEAKER
                 AudioDeviceInfo.TYPE_BUILTIN_EARPIECE,
                 AudioDeviceInfo.TYPE_TELEPHONY -> AUDIO_HANDSET
+                else -> OTHER
+            }
+        }
+
+        fun fromCameraMetadata(cameraMetadata: Int): MediaDeviceType {
+            return when (cameraMetadata) {
+                CameraMetadata.LENS_FACING_FRONT -> VIDEO_FRONT_CAMERA
+                CameraMetadata.LENS_FACING_BACK -> VIDEO_BACK_CAMERA
+                CameraMetadata.LENS_FACING_EXTERNAL -> VIDEO_EXTERNAL_CAMERA
                 else -> OTHER
             }
         }

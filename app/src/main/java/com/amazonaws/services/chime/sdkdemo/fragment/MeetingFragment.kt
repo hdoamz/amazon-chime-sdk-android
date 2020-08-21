@@ -33,9 +33,7 @@ import com.amazonaws.services.chime.sdk.meetings.audiovideo.audio.activespeakerd
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.audio.activespeakerpolicy.DefaultActiveSpeakerPolicy
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.metric.MetricsObserver
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.metric.ObservableMetric
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoPauseState
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoTileObserver
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoTileState
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.*
 import com.amazonaws.services.chime.sdk.meetings.device.DeviceChangeObserver
 import com.amazonaws.services.chime.sdk.meetings.device.MediaDevice
 import com.amazonaws.services.chime.sdk.meetings.device.MediaDeviceType
@@ -79,6 +77,8 @@ class MeetingFragment : Fragment(),
 
     private lateinit var credentials: MeetingSessionCredentials
     private lateinit var audioVideo: AudioVideoFacade
+    private lateinit var cameraCapture: CameraCaptureVideoSource
+    private lateinit var screenCapture: ScreenCaptureVideoSource
     private lateinit var listener: RosterViewEventListener
     override val scoreCallbackIntervalMs: Int? get() = 1000
 
@@ -161,6 +161,8 @@ class MeetingFragment : Fragment(),
 
         credentials = (activity as MeetingActivity).getMeetingSessionCredentials()
         audioVideo = activity.getAudioVideo()
+        cameraCapture = activity.getCameraCapture()
+        screenCapture = activity.getScreenCapture()
 
         view.findViewById<TextView>(R.id.textViewMeetingId)?.text = arguments?.getString(
             HomeActivity.MEETING_ID_KEY
@@ -576,6 +578,8 @@ class MeetingFragment : Fragment(),
     }
 
     private fun startLocalVideo() {
+        audioVideo.chooseVideoSource(screenCapture)
+        screenCapture.start()
         audioVideo.startLocalVideo()
         buttonCamera.setImageResource(R.drawable.button_camera_on)
         selectTab(SubTab.Video.position)

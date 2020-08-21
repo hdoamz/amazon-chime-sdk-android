@@ -11,21 +11,32 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.SurfaceTexture
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES
+import android.hardware.camera2.CameraManager
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
+import android.util.Range
+import android.util.Size
 import androidx.annotation.VisibleForTesting
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoSource
 import com.amazonaws.services.chime.sdk.meetings.internal.audio.AudioClientController
 import com.amazonaws.services.chime.sdk.meetings.internal.utils.ObserverUtils
 import com.amazonaws.services.chime.sdk.meetings.internal.video.VideoClientController
 import com.xodee.client.audio.audioclient.AudioClient
+import kotlin.math.max
+import kotlin.math.roundToInt
+
 
 class DefaultDeviceController(
     private val context: Context,
     private val audioClientController: AudioClientController,
     private val videoClientController: VideoClientController,
     private val audioManager: AudioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager,
+    private val videoDeviceController: VideoDeviceController,
     private val buildVersion: Int = Build.VERSION.SDK_INT
 ) : DeviceController {
     private val deviceChangeObservers = mutableSetOf<DeviceChangeObserver>()
@@ -187,17 +198,23 @@ class DefaultDeviceController(
     }
 
     override fun getActiveCamera(): MediaDevice? {
-        val activeCamera = videoClientController.getActiveCamera()
-        return activeCamera?.let {
-            MediaDevice(
-                activeCamera.name,
-                if (activeCamera.isFrontFacing) MediaDeviceType.VIDEO_FRONT_CAMERA else MediaDeviceType.VIDEO_BACK_CAMERA
-            )
-        }
+        return videoDeviceController.getActiveCamera()
     }
 
     override fun switchCamera() {
-        videoClientController.switchCamera()
+        videoDeviceController.switchCamera()
+    }
+
+    override fun listVideoDevices(): List<MediaDevice> {
+        return videoDeviceController.listVideoDevices()
+    }
+
+    override fun getSupportedVideoCaptureFormats(mediaDevice: MediaDevice): List<VideoDeviceFormat> {
+        return videoDeviceController.getSupportedVideoCaptureFormats(mediaDevice)
+    }
+
+    override fun chooseVideoDevice(mediaDevice: MediaDevice, format: VideoDeviceFormat) {
+        return videoDeviceController.chooseVideoDevice(mediaDevice, format)
     }
 
     override fun addDeviceChangeObserver(observer: DeviceChangeObserver) {
@@ -210,6 +227,10 @@ class DefaultDeviceController(
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     fun notifyAudioDeviceChange() {
-        ObserverUtils.notifyObserverOnMainThread(deviceChangeObservers) { it.onAudioDeviceChanged(listAudioDevices()) }
+        ObserverUtils.notifyObserverOnMainThread(deviceChangeObservers) {
+            it.onAudioDeviceChanged(
+                listAudioDevices()
+            )
+        }
     }
 }
