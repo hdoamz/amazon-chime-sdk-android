@@ -11,12 +11,9 @@ import com.amazonaws.services.chime.sdk.meetings.audiovideo.AudioVideoFacade
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.DefaultAudioVideoController
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.DefaultAudioVideoFacade
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.audio.activespeakerdetector.DefaultActiveSpeakerDetector
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.CameraCaptureVideoSource
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.DefaultVideoTileController
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.DefaultVideoTileFactory
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.ScreenCaptureVideoSource
 import com.amazonaws.services.chime.sdk.meetings.device.DefaultDeviceController
-import com.amazonaws.services.chime.sdk.meetings.device.DefaultVideoDeviceController
 import com.amazonaws.services.chime.sdk.meetings.internal.audio.AudioClientFactory
 import com.amazonaws.services.chime.sdk.meetings.internal.audio.DefaultAudioClientController
 import com.amazonaws.services.chime.sdk.meetings.internal.audio.DefaultAudioClientObserver
@@ -37,8 +34,6 @@ class DefaultMeetingSession(
     ) : MeetingSession {
 
     override val audioVideo: AudioVideoFacade
-    override val cameraCapture: CameraCaptureVideoSource
-    override val screenCapture: ScreenCaptureVideoSource
 
     init {
         val metricsCollector =
@@ -106,18 +101,12 @@ class DefaultMeetingSession(
             )
         videoClientObserver.subscribeToVideoTileChange(videoTileController)
 
-        val videoDeviceController =
-            DefaultVideoDeviceController(
-                context,
-                videoClientController,
-                logger = logger
-            )
         val deviceController =
             DefaultDeviceController(
                 context,
                 audioClientController,
                 videoClientController,
-                videoDeviceController = videoDeviceController
+                logger
             )
 
         val realtimeController =
@@ -148,8 +137,5 @@ class DefaultMeetingSession(
             videoTileController,
             activeSpeakerDetector
         )
-
-        cameraCapture = CameraCaptureVideoSource(context, logger)
-        screenCapture = ScreenCaptureVideoSource(context, logger)
     }
 }

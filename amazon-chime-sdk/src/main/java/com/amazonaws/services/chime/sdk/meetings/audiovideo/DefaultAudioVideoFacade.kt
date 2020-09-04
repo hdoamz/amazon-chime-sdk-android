@@ -13,14 +13,11 @@ import com.amazonaws.services.chime.sdk.meetings.audiovideo.audio.activespeakerd
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.audio.activespeakerdetector.ActiveSpeakerObserver
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.audio.activespeakerpolicy.ActiveSpeakerPolicy
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.metric.MetricsObserver
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoRenderView
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoSource
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoTileController
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoTileObserver
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.*
 import com.amazonaws.services.chime.sdk.meetings.device.DeviceChangeObserver
 import com.amazonaws.services.chime.sdk.meetings.device.DeviceController
 import com.amazonaws.services.chime.sdk.meetings.device.MediaDevice
-import com.amazonaws.services.chime.sdk.meetings.device.VideoDeviceFormat
+import com.amazonaws.services.chime.sdk.meetings.device.VideoCaptureFormat
 import com.amazonaws.services.chime.sdk.meetings.realtime.RealtimeControllerFacade
 import com.amazonaws.services.chime.sdk.meetings.realtime.RealtimeObserver
 import com.amazonaws.services.chime.sdk.meetings.realtime.datamessage.DataMessageObserver
@@ -38,6 +35,8 @@ class DefaultAudioVideoFacade(
         Manifest.permission.MODIFY_AUDIO_SETTINGS,
         Manifest.permission.RECORD_AUDIO
     )
+
+    private var isUsingExternalVideoSource = false
 
     override fun start() {
         val hasPermission: Boolean = permissions.all {
@@ -77,15 +76,31 @@ class DefaultAudioVideoFacade(
         audioVideoController.stop()
     }
 
-    override fun chooseVideoSource(source: VideoSource) {
+    override fun chooseVideoSource(source: VideoSource?) {
+        isUsingExternalVideoSource = source != null
+        if (deviceController.getActiveCamera() != null) {
+            deviceController.stopVideoCapture()
+        }
         audioVideoController.chooseVideoSource(source)
     }
 
+    override fun setVideoFrameProcessorStages(stages: List<VideoFrameProcessor>) {
+        return
+    }
+
     override fun startLocalVideo() {
+        // If no external video source is set, and no capture has been started
+        // by the device manager, start the default capture session
+        if (!isUsingExternalVideoSource && deviceController.getActiveCamera() == null) {
+            deviceController.startVideoCapture(null, null)
+        }
         audioVideoController.startLocalVideo()
     }
 
     override fun stopLocalVideo() {
+        if (deviceController.getActiveCamera() != null) {
+            deviceController.stopVideoCapture()
+        }
         audioVideoController.stopLocalVideo()
     }
 
@@ -145,12 +160,20 @@ class DefaultAudioVideoFacade(
         return deviceController.listVideoDevices()
     }
 
-    override fun getSupportedVideoCaptureFormats(mediaDevice: MediaDevice): List<VideoDeviceFormat> {
+    override fun getSupportedVideoCaptureFormats(mediaDevice: MediaDevice): List<VideoCaptureFormat> {
         return deviceController.getSupportedVideoCaptureFormats(mediaDevice)
     }
 
-    override fun chooseVideoDevice(mediaDevice: MediaDevice, format: VideoDeviceFormat) {
-        deviceController.chooseVideoDevice(mediaDevice, format)
+    override fun startVideoCapture(mediaDevice: MediaDevice?, format: VideoCaptureFormat?) {
+        deviceController.startVideoCapture(mediaDevice, format)
+    }
+
+    override fun stopVideoCapture() {
+        deviceController.stopVideoCapture()
+    }
+
+    override fun bindVideoCaptureOutput(videoSink: VideoSink) {
+        deviceController.bindVideoCaptureOutput(videoSink)
     }
 
     override fun addDeviceChangeObserver(observer: DeviceChangeObserver) {

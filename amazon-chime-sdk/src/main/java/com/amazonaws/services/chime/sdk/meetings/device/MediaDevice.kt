@@ -13,13 +13,20 @@ import android.media.AudioDeviceInfo
  *
  * @property label: String - human readable string describing the device.
  * @property type: [MediaDeviceType] - media device type
+ * @property id: String - Unique ID, if applicable
  */
-data class MediaDevice(val label: String, val type: MediaDeviceType) {
+data class MediaDevice(
+    val label: String,
+    val type: MediaDeviceType,
+    val id: String = "") {
     val order: Int = when (type) {
         MediaDeviceType.AUDIO_BLUETOOTH -> 0
         MediaDeviceType.AUDIO_WIRED_HEADSET -> 1
         MediaDeviceType.AUDIO_BUILTIN_SPEAKER -> 2
         MediaDeviceType.AUDIO_HANDSET -> 3
+        MediaDeviceType.VIDEO_FRONT_CAMERA -> 4
+        MediaDeviceType.VIDEO_BACK_CAMERA -> 5
+        MediaDeviceType.VIDEO_EXTERNAL_CAMERA -> 6
         else -> 99
     }
 
@@ -38,6 +45,19 @@ enum class MediaDeviceType {
     VIDEO_BACK_CAMERA,
     VIDEO_EXTERNAL_CAMERA,
     OTHER;
+
+    override fun toString(): String {
+        return when (this) {
+            AUDIO_BLUETOOTH -> "Bluetooth"
+            AUDIO_WIRED_HEADSET -> "Wired Headset"
+            AUDIO_BUILTIN_SPEAKER -> "Builtin Speaker"
+            AUDIO_HANDSET -> "Handset"
+            VIDEO_FRONT_CAMERA -> "Front Camera"
+            VIDEO_BACK_CAMERA -> "Back Camera"
+            VIDEO_EXTERNAL_CAMERA -> "External Camera"
+            OTHER -> "Other"
+        }
+    }
 
     companion object {
         fun fromAudioDeviceInfo(audioDeviceInfo: Int): MediaDeviceType {

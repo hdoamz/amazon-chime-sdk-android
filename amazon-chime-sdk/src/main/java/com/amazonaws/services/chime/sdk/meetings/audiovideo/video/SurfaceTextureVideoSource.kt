@@ -1,11 +1,14 @@
 package com.amazonaws.services.chime.sdk.meetings.audiovideo.video
 
+import android.annotation.SuppressLint
 import android.graphics.Matrix
 import android.graphics.SurfaceTexture
+import android.opengl.EGL14
 import android.opengl.EGLContext
 import android.opengl.GLES11Ext
 import android.opengl.GLES20
 import android.os.Handler
+import android.os.HandlerThread
 import android.view.Surface
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.EglCore
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.GlUtil
@@ -13,11 +16,14 @@ import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 
+
 open class SurfaceTextureVideoSource(
     logger: Logger,
-    private val sharedEGLContext: EGLContext? = null
+    private val sharedEGLContext: EGLContext = EGL14.EGL_NO_CONTEXT
 ) : VideoSource {
-    protected val handler = Handler()
+    private val thread: HandlerThread
+
+    protected val handler: Handler
     protected lateinit var surface: Surface
 
     private var textureId: Int = 0;
@@ -29,6 +35,10 @@ open class SurfaceTextureVideoSource(
     private val TAG = "SurfaceTextureVideoSource"
 
     init {
+        thread = HandlerThread("SurfaceTextureVideoSource")
+        thread.start()
+        handler = Handler(thread.looper)
+
         runBlocking(handler.asCoroutineDispatcher().immediate) {
             eglCore =
                 EglCore(
@@ -87,6 +97,7 @@ open class SurfaceTextureVideoSource(
                 }
             }
             surfaceTexture.setDefaultBufferSize(960, 720)
+            @SuppressLint("Recycle")
             surface = Surface(surfaceTexture)
 
             logger.info(TAG ,"Created surface texture for video source")
@@ -99,6 +110,16 @@ open class SurfaceTextureVideoSource(
 
     override fun removeSink(sink: VideoSink) {
         sinks.remove(sink)
+    }
+
+    fun release() {
+        runBlocking(handler.asCoroutineDispatcher().immediate) {
+            surface.release()
+            surfaceTexture.release()
+            GLES20.glDeleteTextures(1, intArrayOf(textureId), 0);
+            eglCore.release()
+            handler.looper.quit()
+        }
     }
 
     private fun convertMatrixToAndroidGraphicsMatrix(transformMatrix: FloatArray): Matrix {

@@ -8,6 +8,7 @@ import android.media.projection.MediaProjectionManager
 import android.opengl.EGLContext
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 import android.content.Intent
+import android.opengl.EGL14
 import android.util.DisplayMetrics
 import android.view.Display
 
@@ -15,8 +16,8 @@ import android.view.Display
 class ScreenCaptureVideoSource(
     private val context: Context,
     private val logger: Logger,
-    sharedEGLContext: EGLContext? = null
-) : SurfaceTextureVideoSource(logger, sharedEGLContext), MediaProjectionActivityAdapter.Callback {
+    sharedEGLContext: EGLContext = EGL14.EGL_NO_CONTEXT
+) : SurfaceTextureVideoSource(logger, sharedEGLContext), MediaProjectionActivityAdapter.Callback, VideoCaptureSource {
     private val mediaProjectionManager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
     private val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
 
@@ -24,11 +25,15 @@ class ScreenCaptureVideoSource(
 
     private val TAG = "ScreenCaptureVideoSource"
 
-    fun start() {
+    override fun start() {
         MediaProjectionActivityAdapter.callback = this
         val startIntent = Intent(context, MediaProjectionActivityAdapter::class.java)
         startIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(startIntent)
+    }
+
+    override fun stop() {
+        return
     }
 
     override fun onScreenCaptureActivityResult(resultCode: Int, intent: Intent, metrics: DisplayMetrics) {

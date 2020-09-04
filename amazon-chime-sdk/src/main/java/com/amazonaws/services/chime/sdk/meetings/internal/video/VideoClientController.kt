@@ -59,7 +59,7 @@ interface VideoClientController {
     /**
      *
      */
-    fun chooseVideoSource(source: VideoSource)
+    fun chooseVideoSource(source: VideoSource?)
 
     /**
      * Pause or resume a remote video tile.

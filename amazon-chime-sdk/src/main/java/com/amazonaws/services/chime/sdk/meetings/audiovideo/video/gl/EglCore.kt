@@ -13,24 +13,19 @@ import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
  * The EGLContext must only be attached to one thread at a time.  This class is not thread-safe.
  */
 class EglCore constructor(
-    sharedContext: EGLContext? = null,
+    sharedContext: EGLContext = EGL14.EGL_NO_CONTEXT,
     private val logger: Logger
 ) {
+    // Public so it can be reused
+    var eglContext = EGL14.EGL_NO_CONTEXT
+
     private var eglSurface = EGL14.EGL_NO_SURFACE
     private var eglDisplay = EGL14.EGL_NO_DISPLAY
-    private var eglContext = EGL14.EGL_NO_CONTEXT
     private var eglConfig: EGLConfig? = null
 
     private val TAG = "EglCore"
 
     init {
-        var sharedContext = sharedContext
-        if (eglDisplay !== EGL14.EGL_NO_DISPLAY) {
-            throw RuntimeException("EGL already set up")
-        }
-        if (sharedContext == null) {
-            sharedContext = EGL14.EGL_NO_CONTEXT
-        }
         eglDisplay = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
         if (eglDisplay === EGL14.EGL_NO_DISPLAY) {
             throw RuntimeException("unable to get EGL14 display")
@@ -69,10 +64,6 @@ class EglCore constructor(
             "EGLContext created, client version " + values[0]
         )
     }
-    /**
-     * Returns the GLES version this context is configured for (currently 2 or 3).
-     */
-    var glVersion = -1
 
     /**
      * Finds a suitable EGLConfig.

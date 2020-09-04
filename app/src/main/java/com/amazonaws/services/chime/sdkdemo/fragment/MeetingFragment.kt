@@ -77,8 +77,6 @@ class MeetingFragment : Fragment(),
 
     private lateinit var credentials: MeetingSessionCredentials
     private lateinit var audioVideo: AudioVideoFacade
-    private lateinit var cameraCapture: CameraCaptureVideoSource
-    private lateinit var screenCapture: ScreenCaptureVideoSource
     private lateinit var listener: RosterViewEventListener
     override val scoreCallbackIntervalMs: Int? get() = 1000
 
@@ -161,8 +159,6 @@ class MeetingFragment : Fragment(),
 
         credentials = (activity as MeetingActivity).getMeetingSessionCredentials()
         audioVideo = activity.getAudioVideo()
-        cameraCapture = activity.getCameraCapture()
-        screenCapture = activity.getScreenCapture()
 
         view.findViewById<TextView>(R.id.textViewMeetingId)?.text = arguments?.getString(
             HomeActivity.MEETING_ID_KEY
@@ -359,6 +355,10 @@ class MeetingFragment : Fragment(),
         deviceListAdapter.clear()
         deviceListAdapter.addAll(meetingModel.currentMediaDevices)
         deviceListAdapter.notifyDataSetChanged()
+    }
+
+    override fun onVideoDeviceChanged(freshVideoDeviceList: List<MediaDevice>) {
+
     }
 
     override fun onVolumeChanged(volumeUpdates: Array<VolumeUpdate>) {
@@ -578,8 +578,6 @@ class MeetingFragment : Fragment(),
     }
 
     private fun startLocalVideo() {
-        audioVideo.chooseVideoSource(screenCapture)
-        screenCapture.start()
         audioVideo.startLocalVideo()
         buttonCamera.setImageResource(R.drawable.button_camera_on)
         selectTab(SubTab.Video.position)

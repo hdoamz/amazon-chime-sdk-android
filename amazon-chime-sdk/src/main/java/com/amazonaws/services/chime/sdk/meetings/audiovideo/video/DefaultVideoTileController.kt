@@ -43,10 +43,6 @@ class DefaultVideoTileController(
         attendeeId: String?,
         pauseState: VideoPauseState
     ) {
-        logger.info(
-            TAG,
-            "onReceiveFrame with videoId = $videoId & attendeeId = $attendeeId"
-        )
         /**
          * There are FOUR possible outcomes:
          * 1) Create - Someone has started sharing video

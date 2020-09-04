@@ -10,8 +10,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.AudioVideoFacade
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.CameraCaptureVideoSource
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.ScreenCaptureVideoSource
 import com.amazonaws.services.chime.sdk.meetings.session.CreateAttendeeResponse
 import com.amazonaws.services.chime.sdk.meetings.session.CreateMeetingResponse
 import com.amazonaws.services.chime.sdk.meetings.session.DefaultMeetingSession
@@ -94,10 +92,6 @@ class MeetingActivity : AppCompatActivity(),
     }
 
     fun getAudioVideo(): AudioVideoFacade = meetingSessionModel.audioVideo
-
-    fun getCameraCapture(): CameraCaptureVideoSource = meetingSessionModel.cameraCapture
-
-    fun getScreenCapture(): ScreenCaptureVideoSource = meetingSessionModel.screenCapture
 
     fun getMeetingSessionCredentials(): MeetingSessionCredentials = meetingSessionModel.credentials
 

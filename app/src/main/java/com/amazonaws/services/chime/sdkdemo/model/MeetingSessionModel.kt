@@ -7,8 +7,6 @@ package com.amazonaws.services.chime.sdkdemo.model
 
 import androidx.lifecycle.ViewModel
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.AudioVideoFacade
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.CameraCaptureVideoSource
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.ScreenCaptureVideoSource
 import com.amazonaws.services.chime.sdk.meetings.session.MeetingSession
 import com.amazonaws.services.chime.sdk.meetings.session.MeetingSessionCredentials
 
@@ -24,10 +22,4 @@ class MeetingSessionModel : ViewModel() {
 
     val audioVideo: AudioVideoFacade
         get() = meetingSession.audioVideo
-
-    val cameraCapture: CameraCaptureVideoSource
-        get() = meetingSession.cameraCapture
-
-    val screenCapture: ScreenCaptureVideoSource
-        get() = meetingSession.screenCapture
 }

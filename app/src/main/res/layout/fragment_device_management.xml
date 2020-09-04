@@ -36,11 +36,61 @@
         android:paddingLeft="32dp"
         android:paddingRight="32dp" />
 
+    <TextView
+        android:id="@+id/textViewVideoDevice"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:paddingLeft="32dp"
+        android:paddingRight="32dp"
+        android:text="@string/video_device_title" />
+
+    <Spinner
+        android:id="@+id/spinnerVideoDevice"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:paddingLeft="32dp"
+        android:paddingRight="32dp" />
+
+    <TextView
+        android:id="@+id/textViewVideoFormat"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:paddingLeft="32dp"
+        android:paddingRight="32dp"
+        android:text="@string/video_format_title" />
+
+    <Spinner
+        android:id="@+id/spinnerVideoFormat"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:paddingLeft="32dp"
+        android:paddingRight="32dp" />
+
+    <TextView
+        android:id="@+id/textViewVideoPreview"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:paddingLeft="32dp"
+        android:paddingRight="32dp"
+        android:text="@string/video_preview_title" />
+
+    <view
+        android:id="@+id/videoPreview"
+        class="com.amazonaws.services.chime.sdk.meetings.audiovideo.video.DefaultVideoRenderView"
+        android:layout_width="wrap_content"
+        android:layout_height="160dp" />
+
     <Button
         android:id="@+id/buttonJoin"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
+        android:layout_marginTop="20dp"
         android:layout_marginBottom="16dp"
         android:contentDescription="@string/meeting_join"
         android:paddingLeft="20dp"

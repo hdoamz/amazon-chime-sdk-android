@@ -42,6 +42,7 @@ class DefaultVideoClientController(
      * This flag will enable higher resolution for videos
      */
     private val VIDEO_CLIENT_FLAG_ENABLE_TWO_SIMULCAST_STREAMS = 4096
+    private val VIDEO_CLIENT_FLAG_USE_FAKE_CAPTURER = 4
 
     private val gson = Gson()
     private val permissions = arrayOf(
@@ -127,7 +128,12 @@ class DefaultVideoClientController(
         nextDevice?.let { videoClient?.currentDevice = it }
     }
 
-    override fun chooseVideoSource(source: VideoSource) {
+    override fun chooseVideoSource(source: VideoSource?) {
+        if (source == null) {
+            videoClient?.setExternalVideoSource(null)
+            return
+        }
+
         val adapter = VideoClientSourceAdapter(source, logger)
         videoClient?.setExternalVideoSource(adapter)
         return
@@ -190,7 +196,7 @@ class DefaultVideoClientController(
         logger.info(TAG, "Starting video client")
         videoClient?.setReceiving(false)
         var flag = 0
-        flag = flag or VIDEO_CLIENT_FLAG_ENABLE_TWO_SIMULCAST_STREAMS
+        flag = flag or VIDEO_CLIENT_FLAG_ENABLE_TWO_SIMULCAST_STREAMS or VIDEO_CLIENT_FLAG_USE_FAKE_CAPTURER
         videoClient?.startServiceV2(
             "",
             "",

@@ -6,8 +6,6 @@
 package com.amazonaws.services.chime.sdk.meetings.session
 
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.AudioVideoFacade
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.CameraCaptureVideoSource
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.ScreenCaptureVideoSource
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 
 /**
@@ -18,6 +16,4 @@ interface MeetingSession {
     val configuration: MeetingSessionConfiguration
     val logger: Logger
     val audioVideo: AudioVideoFacade
-    val cameraCapture: CameraCaptureVideoSource
-    val screenCapture: ScreenCaptureVideoSource
 }

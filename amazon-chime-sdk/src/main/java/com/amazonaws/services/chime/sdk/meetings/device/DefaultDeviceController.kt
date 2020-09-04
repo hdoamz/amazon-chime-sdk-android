@@ -13,19 +13,22 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES
 import android.hardware.camera2.CameraManager
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.opengl.EGL14
+import android.opengl.EGLContext
 import android.os.Build
 import android.util.Range
 import android.util.Size
 import androidx.annotation.VisibleForTesting
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoSource
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoSink
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.EglCore
 import com.amazonaws.services.chime.sdk.meetings.internal.audio.AudioClientController
 import com.amazonaws.services.chime.sdk.meetings.internal.utils.ObserverUtils
 import com.amazonaws.services.chime.sdk.meetings.internal.video.VideoClientController
+import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 import com.xodee.client.audio.audioclient.AudioClient
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -35,14 +38,24 @@ class DefaultDeviceController(
     private val context: Context,
     private val audioClientController: AudioClientController,
     private val videoClientController: VideoClientController,
+    private val logger: Logger,
+    private val sharedEGLContext: EGLContext = EGL14.EGL_NO_CONTEXT,
     private val audioManager: AudioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager,
-    private val videoDeviceController: VideoDeviceController,
+    private val cameraManager: CameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager,
     private val buildVersion: Int = Build.VERSION.SDK_INT
 ) : DeviceController {
     private val deviceChangeObservers = mutableSetOf<DeviceChangeObserver>()
 
+    private val eglCore = EglCore(sharedEGLContext,logger)
+
+    private var currentCameraCaptureMediaDevice: MediaDevice? = null
+    private var cameraCaptureVideoSource: CameraCaptureVideoSource? = null
+
     // TODO: remove code blocks for lower API level after the minimum SDK version becomes 23
     private val AUDIO_MANAGER_API_LEVEL = 23
+    private val CAMERA_MANAGER_API_LEVEL = 23
+
+    private val TAG = "DefaultDeviceController"
 
     init {
         @SuppressLint("NewApi")
@@ -71,6 +84,18 @@ class DefaultDeviceController(
             context.registerReceiver(
                 receiver, IntentFilter(BluetoothDevice.ACTION_ACL_DISCONNECTED)
             )
+        }
+
+        if (buildVersion >= CAMERA_MANAGER_API_LEVEL) {
+            cameraManager.registerAvailabilityCallback(object : CameraManager.AvailabilityCallback() {
+                override fun onCameraAvailable(cameraId: String) {
+                    notifyVideoDeviceChange()
+                }
+
+                override fun onCameraUnavailable(cameraId: String) {
+                    notifyVideoDeviceChange()
+                }
+            }, null)
         }
     }
 
@@ -197,24 +222,78 @@ class DefaultDeviceController(
         }
     }
 
+
+    private val NANO_SECONDS_PER_SECOND = 1.0e9
+
     override fun getActiveCamera(): MediaDevice? {
-        return videoDeviceController.getActiveCamera()
+        return currentCameraCaptureMediaDevice
     }
 
     override fun switchCamera() {
-        videoDeviceController.switchCamera()
+        return
     }
 
     override fun listVideoDevices(): List<MediaDevice> {
-        return videoDeviceController.listVideoDevices()
+        return cameraManager.cameraIdList.map { id ->
+            val characteristics = cameraManager.getCameraCharacteristics(id)
+            characteristics.get(CameraCharacteristics.LENS_FACING)?.let {
+                val type = MediaDeviceType.fromCameraMetadata(it)
+                return@map MediaDevice("$id ($type)", type, id)
+            }
+            return@map MediaDevice("$id ($MediaDeviceType.OTHER)", MediaDeviceType.OTHER)
+        }
     }
 
-    override fun getSupportedVideoCaptureFormats(mediaDevice: MediaDevice): List<VideoDeviceFormat> {
-        return videoDeviceController.getSupportedVideoCaptureFormats(mediaDevice)
+    override fun getSupportedVideoCaptureFormats(mediaDevice: MediaDevice): List<VideoCaptureFormat> {
+        val characteristics = cameraManager.getCameraCharacteristics(mediaDevice.id)
+
+        val framerateRanges = getSupportedFramerateRanges(characteristics)
+        val defaultMaxFps = framerateRanges.fold(0) { currentMax, range -> max(currentMax, range.upper) }
+
+        val sizes = getSupportedSizes(characteristics)
+
+        val streamMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+            ?: return emptyList()
+
+        return sizes.map { size ->
+            var minFrameDurationNs: Long = 0
+            try {
+                minFrameDurationNs = streamMap.getOutputMinFrameDuration(
+                    SurfaceTexture::class.java, Size(size.width, size.height)
+                )
+            } catch (e: Exception) {
+                // getOutputMinFrameDuration() is not supported on all devices. Ignore silently.
+            }
+            val maxFps =
+                if (minFrameDurationNs == 0L) defaultMaxFps else (NANO_SECONDS_PER_SECOND / minFrameDurationNs).roundToInt()
+            VideoCaptureFormat(size.width, size.height, maxFps)
+        }
     }
 
-    override fun chooseVideoDevice(mediaDevice: MediaDevice, format: VideoDeviceFormat) {
-        return videoDeviceController.chooseVideoDevice(mediaDevice, format)
+    override fun startVideoCapture(mediaDevice: MediaDevice?, format: VideoCaptureFormat?) {
+        if (cameraCaptureVideoSource != null) {
+            logger.info(TAG, "startVideoCapture called with active capture session, restarting")
+            cameraCaptureVideoSource?.stop()
+            cameraCaptureVideoSource?.release()
+        }
+        cameraCaptureVideoSource =
+            CameraCaptureVideoSource(
+                context,
+                logger,
+                eglCore.eglContext
+            )
+        if (cameraCaptureVideoSource != null) {
+            videoClientController.chooseVideoSource(cameraCaptureVideoSource)
+        }
+        cameraCaptureVideoSource?.start()
+    }
+
+    override fun stopVideoCapture() {
+        cameraCaptureVideoSource?.stop()
+    }
+
+    override fun bindVideoCaptureOutput(videoSink: VideoSink) {
+        cameraCaptureVideoSource?.addSink(videoSink)
     }
 
     override fun addDeviceChangeObserver(observer: DeviceChangeObserver) {
@@ -225,8 +304,55 @@ class DefaultDeviceController(
         deviceChangeObservers.remove(observer)
     }
 
+    private fun getSupportedSizes(cameraCharacteristics: CameraCharacteristics): List<Size> {
+        val streamMap =
+            cameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                ?: return emptyList()
+        val supportLevel =
+            cameraCharacteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)
+                ?: return emptyList()
+        val nativeSizes = streamMap.getOutputSizes(SurfaceTexture::class.java)
+            ?: return emptyList()
+
+        // Video may be stretched pre LMR1 on legacy implementations.
+        // Filter out formats that have different aspect ratio than the sensor array.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP_MR1
+            && supportLevel == CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY
+        ) {
+            val activeArraySize =
+                cameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
+                    ?: return emptyList()
+            return nativeSizes.filter { size ->
+                if (activeArraySize.width() * size.height != activeArraySize.height() * size.width) {
+                    return@filter false
+                }
+                return@filter true
+            }
+        }
+        return nativeSizes.toList()
+    }
+
+    private fun getSupportedFramerateRanges(cameraCharacteristics: CameraCharacteristics): List<Range<Int>> {
+        val arrayRanges = cameraCharacteristics.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
+            ?: return emptyList()
+        val unitFactor = if(arrayRanges.isNotEmpty() && arrayRanges[0].upper < 1000) 1 else 1000
+
+        return arrayRanges.map { range ->
+            Range(range.lower / unitFactor, range.upper / unitFactor)
+        }
+    }
+
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     fun notifyAudioDeviceChange() {
+        ObserverUtils.notifyObserverOnMainThread(deviceChangeObservers) {
+            it.onAudioDeviceChanged(
+                listAudioDevices()
+            )
+        }
+    }
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    fun notifyVideoDeviceChange() {
         ObserverUtils.notifyObserverOnMainThread(deviceChangeObservers) {
             it.onAudioDeviceChanged(
                 listAudioDevices()
