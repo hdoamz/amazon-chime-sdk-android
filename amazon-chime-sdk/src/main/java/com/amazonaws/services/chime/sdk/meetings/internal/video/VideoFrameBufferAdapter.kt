@@ -1,7 +1,7 @@
 package com.amazonaws.services.chime.sdk.meetings.internal.video
 
 class VideoFrameBufferAdapter(
-    private val buffer: com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrame.Buffer
+    private val buffer: com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameBuffer
 ) : com.xodee.client.video.VideoFrame.Buffer {
     override fun getWidth(): Int {
         return buffer.getWidth()
@@ -23,5 +23,13 @@ class VideoFrameBufferAdapter(
                 it
             )
         }
+    }
+
+    override fun release() {
+        buffer.release()
+    }
+
+    override fun retain() {
+        buffer.retain()
     }
 }

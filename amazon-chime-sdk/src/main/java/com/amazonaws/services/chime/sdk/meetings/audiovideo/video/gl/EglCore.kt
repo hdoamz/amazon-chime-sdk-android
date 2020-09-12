@@ -1,8 +1,10 @@
 package com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl
 
 import android.graphics.SurfaceTexture
-import android.opengl.*
 import android.opengl.EGL14
+import android.opengl.EGLConfig
+import android.opengl.EGLContext
+import android.opengl.EGLExt
 import android.util.Log
 import android.view.Surface
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger

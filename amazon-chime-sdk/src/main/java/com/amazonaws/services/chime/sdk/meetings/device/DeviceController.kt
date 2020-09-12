@@ -6,6 +6,7 @@
 package com.amazonaws.services.chime.sdk.meetings.device
 
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoSink
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source.VideoCaptureFormat
 
 /**
  * [DeviceController] keeps track of the devices being used for audio device

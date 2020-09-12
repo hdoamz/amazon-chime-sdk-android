@@ -61,6 +61,8 @@ class DefaultVideoTileController(
             videoStreamContentHeight = frame.height
         }
 
+        logger.info(TAG, "onReceiveFrame $videoStreamContentWidth x $videoStreamContentHeight")
+
         if (tile != null) {
             if (frame == null && pauseState == VideoPauseState.Unpaused) {
                 logger.info(

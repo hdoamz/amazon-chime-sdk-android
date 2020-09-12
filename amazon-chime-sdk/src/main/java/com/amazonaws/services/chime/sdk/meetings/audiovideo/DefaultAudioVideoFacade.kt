@@ -14,10 +14,11 @@ import com.amazonaws.services.chime.sdk.meetings.audiovideo.audio.activespeakerd
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.audio.activespeakerpolicy.ActiveSpeakerPolicy
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.metric.MetricsObserver
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.*
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source.VideoSource
 import com.amazonaws.services.chime.sdk.meetings.device.DeviceChangeObserver
 import com.amazonaws.services.chime.sdk.meetings.device.DeviceController
 import com.amazonaws.services.chime.sdk.meetings.device.MediaDevice
-import com.amazonaws.services.chime.sdk.meetings.device.VideoCaptureFormat
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source.VideoCaptureFormat
 import com.amazonaws.services.chime.sdk.meetings.realtime.RealtimeControllerFacade
 import com.amazonaws.services.chime.sdk.meetings.realtime.RealtimeObserver
 import com.amazonaws.services.chime.sdk.meetings.realtime.datamessage.DataMessageObserver
@@ -78,9 +79,7 @@ class DefaultAudioVideoFacade(
 
     override fun chooseVideoSource(source: VideoSource?) {
         isUsingExternalVideoSource = source != null
-        if (deviceController.getActiveCamera() != null) {
-            deviceController.stopVideoCapture()
-        }
+        deviceController.stopVideoCapture()
         audioVideoController.chooseVideoSource(source)
     }
 
@@ -89,18 +88,15 @@ class DefaultAudioVideoFacade(
     }
 
     override fun startLocalVideo() {
-        // If no external video source is set, and no capture has been started
-        // by the device manager, start the default capture session
-        if (!isUsingExternalVideoSource && deviceController.getActiveCamera() == null) {
+        // If no external video source is set, start the device controller capture session
+        if (!isUsingExternalVideoSource) {
             deviceController.startVideoCapture(null, null)
         }
         audioVideoController.startLocalVideo()
     }
 
     override fun stopLocalVideo() {
-        if (deviceController.getActiveCamera() != null) {
-            deviceController.stopVideoCapture()
-        }
+        deviceController.stopVideoCapture()
         audioVideoController.stopLocalVideo()
     }
 

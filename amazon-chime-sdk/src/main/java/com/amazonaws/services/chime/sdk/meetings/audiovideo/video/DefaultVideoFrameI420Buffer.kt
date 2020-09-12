@@ -6,12 +6,12 @@ class DefaultVideoFrameI420Buffer(
     private val width: Int,
     private val height: Int,
     private val dataY: ByteBuffer?,
-                                  private val dataU: ByteBuffer?,
-                                  private val dataV: ByteBuffer?,
-                                  private val strideY: Int,
-                                  private val strideU: Int,
-                                  private val strideV: Int
-) : VideoFrame.I420Buffer {
+    private val dataU: ByteBuffer?,
+    private val dataV: ByteBuffer?,
+    private val strideY: Int,
+    private val strideU: Int,
+    private val strideV: Int
+) : VideoFrameI420Buffer {
     override fun getWidth(): Int {
         return width
     }
@@ -44,7 +44,7 @@ class DefaultVideoFrameI420Buffer(
         return strideV
     }
 
-    override fun toI420(): VideoFrame.I420Buffer? {
+    override fun toI420(): VideoFrameI420Buffer? {
         return this
     }
 
@@ -55,7 +55,15 @@ class DefaultVideoFrameI420Buffer(
         cropHeight: Int,
         scaleWidth: Int,
         scaleHeight: Int
-    ): VideoFrame.Buffer? {
+    ): VideoFrameBuffer? {
         return this
+    }
+
+    override fun retain() {
+        return
+    }
+
+    override fun release() {
+        return
     }
 }

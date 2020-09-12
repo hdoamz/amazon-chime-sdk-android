@@ -1,10 +1,11 @@
 package com.amazonaws.services.chime.sdk.meetings.internal.video
 
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrame
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameI420Buffer
 import java.nio.ByteBuffer
 
 class VideoFrameI420BufferAdapter(
-    private val i420Buffer: com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrame.I420Buffer
+    private val i420Buffer: VideoFrameI420Buffer
 ) : com.xodee.client.video.VideoFrame.I420Buffer {
     override fun getWidth(): Int {
         return i420Buffer.getWidth()
@@ -38,6 +39,7 @@ class VideoFrameI420BufferAdapter(
         return i420Buffer.strideV()
     }
 
+
     override fun toI420(): com.xodee.client.video.VideoFrame.I420Buffer? {
         return this
     }
@@ -51,6 +53,14 @@ class VideoFrameI420BufferAdapter(
         scaleHeight: Int
     ): com.xodee.client.video.VideoFrame.Buffer? {
         return VideoFrameI420BufferAdapter(
-            i420Buffer.cropAndScale(cropX, cropY, cropWidth, cropHeight, scaleWidth, scaleHeight) as VideoFrame.I420Buffer)
+            i420Buffer.cropAndScale(cropX, cropY, cropWidth, cropHeight, scaleWidth, scaleHeight) as VideoFrameI420Buffer)
+    }
+
+    override fun retain() {
+        i420Buffer.retain()
+    }
+
+    override fun release() {
+        i420Buffer.release()
     }
 }

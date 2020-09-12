@@ -1,26 +1,40 @@
 package com.amazonaws.services.chime.sdk.meetings.audiovideo.video
 
+import android.R.attr
+import android.R.id
 import android.graphics.Matrix
 import android.opengl.GLES20
 import android.os.Handler
+import android.util.Log
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.*
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.GlGenericDrawer
+import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
+import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 import java.nio.ByteBuffer
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.math.roundToInt
 
 
 class DefaultVideoFrameTextureBuffer(
+    private val logger: Logger,
     private val width: Int,
     private val height: Int,
     private val textureId: Int,
-    private var transformMatrix: Matrix?,
+    private val transformMatrix: Matrix?,
+    private val type: VideoFrameTextureBuffer.Type,
+    private val releaseCallback: Runnable,
     private val handler: Handler
-) : VideoFrame.TextureBuffer {
+) : VideoFrameTextureBuffer {
+    private var unscaledWidth: Int = width
+    private var unscaledHeight: Int = height
+
+    private val refCountDelegate = RefCountDelegate(releaseCallback)
+
     private val FRAGMENT_SHADER =
 // Difference in texture coordinate corresponding to one
 // sub-pixel in the x direction.
-"""
+        """
 uniform vec2 xUnit;
 uniform vec4 coeffs;
 
@@ -58,9 +72,9 @@ void main() {
         }
 
         override fun onNewShader(shader: GlShader?) {
-            if (shader != null) {
-                xUnitLoc = shader.getUniformLocation("xUnit")
-                coeffsLoc = shader.getUniformLocation("coeffs")
+            shader?.let {
+                xUnitLoc = it.getUniformLocation("xUnit")
+                coeffsLoc = it.getUniformLocation("coeffs")
             }
         }
 
@@ -103,6 +117,7 @@ void main() {
                 floatArrayOf(0.439216f, -0.367788f, -0.0714274f, 0.501961f)
         }
     }
+
     private val i420TextureFrameBuffer =
         GlTextureFrameBuffer(
             GLES20.GL_RGBA
@@ -114,12 +129,28 @@ void main() {
             shaderCallbacks
         )
 
+    private constructor(
+        logger: Logger,
+        unscaledWidth: Int,
+        unscaledHeight: Int,
+        width: Int,
+        height: Int,
+        textureId: Int,
+        transformMatrix: Matrix,
+        type: VideoFrameTextureBuffer.Type,
+        releaseCallback: Runnable,
+        handler: Handler
+    ) : this(logger, width, height, textureId, transformMatrix, type, releaseCallback, handler) {
+        this.unscaledWidth = unscaledWidth
+        this.unscaledHeight = unscaledHeight
+    }
+
     override fun transformMatrix(): Matrix? {
         return transformMatrix
     }
 
-    override fun type(): VideoFrame.TextureBuffer.Type {
-        return VideoFrame.TextureBuffer.Type.OES
+    override fun type(): VideoFrameTextureBuffer.Type {
+        return type
     }
 
     override fun getWidth(): Int {
@@ -134,7 +165,7 @@ void main() {
         return textureId;
     }
 
-    override fun toI420(): VideoFrame.I420Buffer? {
+    override fun toI420(): VideoFrameI420Buffer? {
         return runBlocking(handler.asCoroutineDispatcher().immediate) {
             // We draw into a buffer laid out like
             //
@@ -205,8 +236,15 @@ void main() {
 
             // Draw V.
             shaderCallbacks.setPlaneV()
-            drawTexture( drawer, renderMatrix, frameWidth, frameHeight,  /* viewportX= */
-                viewportWidth / 2,  /* viewportY= */ frameHeight,  viewportWidth / 2,  /* viewportHeight= */ uvHeight
+            drawTexture(
+                drawer,
+                renderMatrix,
+                frameWidth,
+                frameHeight,  /* viewportX= */
+                viewportWidth / 2,  /* viewportY= */
+                frameHeight,
+                viewportWidth / 2,  /* viewportHeight= */
+                uvHeight
             )
 
             GLES20.glReadPixels(
@@ -259,8 +297,39 @@ void main() {
         cropHeight: Int,
         scaleWidth: Int,
         scaleHeight: Int
-    ): VideoFrame.Buffer? {
-        return this
+    ): VideoFrameBuffer? {
+        logger.info("TEST", "$cropX $cropY $cropWidth $cropHeight $scaleWidth $scaleHeight")
+        if (cropWidth == 0) {
+            logger.info("TEST", "here")
+        }
+        val cropAndScaleMatrix = Matrix()
+        // In WebRTC, Y=0 is the top row, while in OpenGL Y=0 is the bottom row. This means that the Y
+        // direction is effectively reversed.
+        val cropYFromBottom = height - (cropY + cropHeight)
+        cropAndScaleMatrix.preTranslate(
+            cropX / width.toFloat(),
+            cropYFromBottom / height.toFloat()
+        )
+        cropAndScaleMatrix.preScale(
+            cropWidth / width.toFloat(),
+            cropHeight / height.toFloat()
+        )
+
+        return applyTransformMatrix(
+            cropAndScaleMatrix,
+            (unscaledWidth * cropWidth / width.toFloat()).roundToInt(),
+            (unscaledHeight * cropHeight / height.toFloat()).roundToInt(),
+            scaleWidth,
+            scaleHeight
+        )
+    }
+
+    override fun retain() {
+        refCountDelegate.retain()
+    }
+
+    override fun release() {
+        refCountDelegate.release()
     }
 
     /**
@@ -288,15 +357,42 @@ void main() {
             )
 
         when (type()) {
-            VideoFrame.TextureBuffer.Type.OES -> drawer.drawOes(
+            VideoFrameTextureBuffer.Type.OES -> drawer.drawOes(
                 textureId(), finalGlMatrix, frameWidth, frameHeight, viewportX,
                 viewportY, viewportWidth, viewportHeight
             )
-            VideoFrame.TextureBuffer.Type.RGB -> drawer.drawRgb(
+            VideoFrameTextureBuffer.Type.RGB -> drawer.drawRgb(
                 textureId(), finalGlMatrix, frameWidth, frameHeight, viewportX,
                 viewportY, viewportWidth, viewportHeight
             )
-            else -> throw RuntimeException("Unknown texture type.")
         }
+    }
+
+    /**
+     * Create a new TextureBufferImpl with an applied transform matrix and a new size. The
+     * existing buffer is unchanged. The given transform matrix is applied first when texture
+     * coordinates are still in the unmodified [0, 1] range.
+     */
+    fun applyTransformMatrix(
+        transformMatrix: Matrix, newWidth: Int, newHeight: Int
+    ): DefaultVideoFrameTextureBuffer {
+        return applyTransformMatrix(
+            transformMatrix, /* unscaledWidth= */ newWidth, /* unscaledHeight= */ newHeight,
+            /* scaledWidth= */ newWidth, /* scaledHeight= */ newHeight
+        )
+    }
+
+    private fun applyTransformMatrix(
+        transformMatrix: Matrix, unscaledWidth: Int,
+        unscaledHeight: Int, scaledWidth: Int, scaledHeight: Int
+    ): DefaultVideoFrameTextureBuffer {
+        val newMatrix = Matrix(this.transformMatrix)
+        newMatrix.preConcat(transformMatrix)
+        retain()
+        return DefaultVideoFrameTextureBuffer(logger,
+            unscaledWidth, unscaledHeight, scaledWidth, scaledHeight,
+            textureId, newMatrix, type, Runnable { release() },
+            handler
+        )
     }
 }

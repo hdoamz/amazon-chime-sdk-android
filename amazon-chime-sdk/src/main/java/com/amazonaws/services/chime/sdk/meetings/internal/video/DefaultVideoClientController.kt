@@ -10,8 +10,10 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.opengl.EGLContext
 import androidx.core.content.ContextCompat
+import com.amazon.chime.webrtc.EglBase
+import com.amazon.chime.webrtc.EglBase14
 import com.amazonaws.services.chime.sdk.BuildConfig
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoSource
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source.VideoSource
 import com.amazonaws.services.chime.sdk.meetings.session.MeetingSessionConfiguration
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 import com.google.gson.Gson
@@ -30,7 +32,7 @@ class DefaultVideoClientController(
     private val videoClientObserver: VideoClientObserver,
     private val configuration: MeetingSessionConfiguration,
     private val videoClientFactory: VideoClientFactory,
-    sharedEglContext: EGLContext?
+    private val sharedEglContext: EGLContext?
 ) : VideoClientController,
     VideoClientLifecycleHandler {
 
@@ -42,12 +44,14 @@ class DefaultVideoClientController(
      * This flag will enable higher resolution for videos
      */
     private val VIDEO_CLIENT_FLAG_ENABLE_TWO_SIMULCAST_STREAMS = 4096
-    private val VIDEO_CLIENT_FLAG_USE_FAKE_CAPTURER = 4
+    private val VIDEO_CLIENT_FLAG_DISABLE_CAPTURER = 262144
 
     private val gson = Gson()
     private val permissions = arrayOf(
         Manifest.permission.CAMERA
     )
+
+    private var videoSourceAdapter: VideoSourceAdapter? = null
 
     init {
         videoClientStateController.bindLifecycleHandler(this)
@@ -89,7 +93,6 @@ class DefaultVideoClientController(
             )
         }
 
-        getActiveCamera() ?: setFrontCameraAsCurrentDevice()
         videoClient?.setSending(true)
     }
 
@@ -115,38 +118,24 @@ class DefaultVideoClientController(
     }
 
     override fun getActiveCamera(): VideoDevice? {
-        return videoClient?.currentDevice
+        return null
     }
 
     override fun switchCamera() {
-        if (!videoClientStateController.canAct(VideoClientState.INITIALIZED)) return
-
-        logger.info(TAG, "Switching camera")
-        val nextDevice: VideoDevice? = videoClient?.devices
-            ?.filter { it.identifier != (getActiveCamera()?.identifier) }
-            ?.elementAtOrNull(0)
-        nextDevice?.let { videoClient?.currentDevice = it }
+        return
     }
 
     override fun chooseVideoSource(source: VideoSource?) {
+        logger.info(TAG, "Choosing external video source in media client")
         if (source == null) {
+            logger.info(TAG, "Choosing null external video source in media client")
             videoClient?.setExternalVideoSource(null)
             return
         }
 
-        val adapter = VideoClientSourceAdapter(source, logger)
-        videoClient?.setExternalVideoSource(adapter)
-        return
-    }
-
-    private fun setFrontCameraAsCurrentDevice() {
-        logger.info(TAG, "Setting front camera as current device")
-        val currentDevice: VideoDevice? = getActiveCamera()
-        if (currentDevice == null || !currentDevice.isFrontFacing) {
-            val frontDevice: VideoDevice? =
-                videoClient?.devices?.filter { it.isFrontFacing }?.elementAtOrNull(0)
-            frontDevice?.let { videoClient?.currentDevice = it }
-        }
+        videoSourceAdapter = VideoSourceAdapter(source, logger)
+        // DELETE ME (Comment for testing previous camera)
+        videoClient?.setExternalVideoSource(videoSourceAdapter)
     }
 
     override fun setRemotePaused(isPaused: Boolean, videoId: Int) {
@@ -196,7 +185,9 @@ class DefaultVideoClientController(
         logger.info(TAG, "Starting video client")
         videoClient?.setReceiving(false)
         var flag = 0
-        flag = flag or VIDEO_CLIENT_FLAG_ENABLE_TWO_SIMULCAST_STREAMS or VIDEO_CLIENT_FLAG_USE_FAKE_CAPTURER
+        flag = flag or VIDEO_CLIENT_FLAG_ENABLE_TWO_SIMULCAST_STREAMS
+        // DELETE ME (Comment for testing previous camera)
+        flag = flag or VIDEO_CLIENT_FLAG_DISABLE_CAPTURER
         videoClient?.startServiceV2(
             "",
             "",
@@ -204,8 +195,25 @@ class DefaultVideoClientController(
             configuration.credentials.joinToken,
             false,
             0,
-            flag
+            flag,
+            null
         )
+
+        // DELETE ME (Uncomment for testing previous camera)
+//         setFrontCameraAsCurrentDevice()
+        // DELETE ME (Comment for testing previous camera)
+        videoClient?.setExternalVideoSource(videoSourceAdapter)
+    }
+
+    // DELETE ME (Uncomment for testing previous camera)
+    private fun setFrontCameraAsCurrentDevice() {
+        logger.info(TAG, "Setting front camera as current device")
+        val currentDevice: VideoDevice? = getActiveCamera()
+        if (currentDevice == null || !currentDevice.isFrontFacing) {
+            val frontDevice: VideoDevice? =
+                videoClient?.devices?.filter { it.isFrontFacing }?.elementAtOrNull(0)
+            frontDevice?.let { videoClient?.currentDevice = it }
+        }
     }
 
     override fun stopVideoClient() {
@@ -215,7 +223,6 @@ class DefaultVideoClientController(
 
     override fun destroyVideoClient() {
         logger.info(TAG, "Destroying video client")
-        videoClient?.clearCurrentDevice()
         videoClientObserver.notifyVideoTileObserver { observer -> observer.destroy() }
         videoClient?.destroy()
         videoClient = null

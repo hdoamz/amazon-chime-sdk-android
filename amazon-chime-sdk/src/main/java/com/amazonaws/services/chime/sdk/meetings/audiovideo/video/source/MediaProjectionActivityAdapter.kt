@@ -1,15 +1,9 @@
-package com.amazonaws.services.chime.sdk.meetings.audiovideo.video
+package com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source
 
-import android.app.Activity
-import android.content.Context
 import android.content.Intent
-import android.hardware.display.DisplayManager
-import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.util.DisplayMetrics
-import android.view.Display
-import android.view.Surface
 import androidx.appcompat.app.AppCompatActivity
 
 

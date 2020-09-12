@@ -1,33 +1,44 @@
-package com.amazonaws.services.chime.sdk.meetings.device
+package com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source
 
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Matrix
 import android.hardware.camera2.*
 import android.opengl.EGL14
 import android.opengl.EGLContext
 import android.util.Range
 import android.view.Surface
+import android.view.WindowManager
 import androidx.core.app.ActivityCompat
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.SurfaceTextureVideoSource
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoCaptureSource
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.DefaultVideoFrameTextureBuffer
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrame
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameTextureBuffer
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 
 
-class CameraCaptureVideoSource(
+class DefaultCameraCaptureSource(
     private val context: Context,
     private val logger: Logger,
     sharedEGLContext: EGLContext = EGL14.EGL_NO_CONTEXT
-    ) : SurfaceTextureVideoSource(logger, sharedEGLContext),
-    VideoCaptureSource {
+) : SurfaceTextureCaptureSource(logger, sharedEGLContext), CameraCaptureSource {
     private val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
     private var cameraCaptureSession: CameraCaptureSession? = null
     private var cameraDevice: CameraDevice? = null
     private var cameraCharacteristics: CameraCharacteristics? = null
 
-    private val TAG = "CameraCaptureVideoSource"
+    private var cameraOrientation = 0
+    private var isCameraFrontFacing = false
+
+    private var currentDeviceId: String? = null
+
+    private val TAG = "DefaultCameraCaptureSource"
+
+    override val contentHint = ContentHint.Motion
+
+    // Implement and store callbacks as private constants since we can't inherit from all of them
 
     val cameraCaptureSessionCaptureCallback = object : CameraCaptureSession.CaptureCallback() {
         override fun onCaptureBufferLost(session: CameraCaptureSession, request: CaptureRequest, target: Surface, frameNumber: Long) {
@@ -50,19 +61,20 @@ class CameraCaptureVideoSource(
 
     val cameraCaptureSessionStateCallback = object: CameraCaptureSession.StateCallback() {
         override fun onConfigured(session: CameraCaptureSession) {
-            logger.info(TAG, "Camera capture session configured")
+            logger.info(TAG, "Camera capture session configured for session with device ID: ${session.device.id}")
 
             cameraCaptureSession = session
             cameraDevice?.let { device ->
                 try {
                     val captureRequestBuilder = device.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
-                    captureRequestBuilder.set(
-                        CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
-                        Range(
-                            15,
-                            15
+
+                    currentVideoCaptureFormat?.let {
+                        captureRequestBuilder.set(
+                            CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
+                            Range(it.maxFps, it.maxFps)
                         )
-                    )
+                    }
+
                     captureRequestBuilder.set(
                         CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON
                     )
@@ -73,8 +85,9 @@ class CameraCaptureVideoSource(
                     session.setRepeatingRequest(
                         captureRequestBuilder.build(), cameraCaptureSessionCaptureCallback, handler
                     )
+                    logger.info(TAG, "Capture request completed with device ID: ${session.device.id}")
                 } catch (e: CameraAccessException) {
-                    logger.error(TAG, "Failed to start capture request")
+                    logger.error(TAG, "Failed to start capture request with device ID: ${session.device.id}")
                     return
                 }
             }
@@ -83,15 +96,15 @@ class CameraCaptureVideoSource(
         }
 
         override fun onConfigureFailed(session: CameraCaptureSession) {
-            logger.error(TAG, "Camera session configuration failed")
+            logger.error(TAG, "Camera session configuration failed with device ID: ${session.device.id}")
             session.close()
         }
     }
 
 
-    val cameraDeviceStateCallback = object : CameraDevice.StateCallback()  {
+    private val cameraDeviceStateCallback = object : CameraDevice.StateCallback()  {
         override fun onOpened(device: CameraDevice) {
-            logger.info(TAG, "Camera device opened")
+            logger.info(TAG, "Camera device opened for ID ${device.id}")
             cameraDevice = device
             try {
                 cameraDevice?.createCaptureSession(
@@ -104,22 +117,38 @@ class CameraCaptureVideoSource(
         }
 
         override fun onClosed(device: CameraDevice) {
-            logger.info(TAG, "Camera device closed")
+            logger.info(TAG, "Camera device closed for ID ${device.id}")
         }
 
         override fun onDisconnected(device: CameraDevice) {
-            logger.info(TAG, "Camera device disconnected")
+            logger.info(TAG, "Camera device disconnected for ID ${device.id}")
             device.close()
         }
 
         override fun onError(device: CameraDevice, error: Int) {
-            logger.info(TAG, "Camera device encountered error: $error")
+            logger.info(TAG, "Camera device encountered error: $error for ID ${device.id}")
             onDisconnected(device)
         }
     }
 
+    override fun setDeviceId(id: String) {
+        handler.post {
+            logger.info(TAG,"Setting capture device ID: $id")
+            if (id == currentDeviceId) {
+                logger.info(TAG, "Already using device ID: $currentDeviceId; ignoring")
+                return@post
+            }
 
-    override fun start() {
+            currentDeviceId = id
+
+            currentVideoCaptureFormat?.let {
+                stop()
+                start(it)
+            }
+        }
+    }
+
+    override fun start(format: VideoCaptureFormat) {
         if (ActivityCompat.checkSelfPermission(
                 context,
                 Manifest.permission.CAMERA
@@ -127,21 +156,46 @@ class CameraCaptureVideoSource(
         ) {
             throw SecurityException("Missing necessary camera permissions")
         }
+        super.start(format)
+        setFrameProcessor(this)
 
-        val cameraId = cameraManager.cameraIdList[0]
-        cameraCharacteristics = cameraManager.getCameraCharacteristics(cameraId)
-        logger.info(TAG, "Starting local video")
+        if (currentDeviceId == null && cameraManager.cameraIdList.isNotEmpty()) {
+            currentDeviceId = cameraManager.cameraIdList[0]
+        }
 
-        cameraManager.openCamera(cameraId, cameraDeviceStateCallback, handler)
+        currentDeviceId?.let {id ->
+            logger.info(TAG, "Starting camera capture with format: $currentVideoCaptureFormat and ID: $id")
+            cameraCharacteristics = cameraManager.getCameraCharacteristics(id).also {
+                cameraOrientation = it.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
+                isCameraFrontFacing = it.get(CameraCharacteristics.LENS_FACING) == CameraMetadata.LENS_FACING_FRONT
+            }
+
+            cameraManager.openCamera(id, cameraDeviceStateCallback, handler)
+        }
     }
 
     override fun stop() {
+        logger.info(TAG, "Stopping camera capture source")
         runBlocking(handler.asCoroutineDispatcher().immediate) {
+            // Stop Surface capture source
+            super.stop()
+
             cameraCaptureSession?.close()
             cameraCaptureSession = null
+
             cameraDevice?.close()
             cameraDevice = null
+
+            currentVideoCaptureFormat = null
         }
+    }
+
+    override fun process(frame: VideoFrame): VideoFrame {
+        return VideoFrame(
+            frame.width, frame.height, frame.timestamp,
+            createTextureBufferWithModifiedTransformMatrix(frame.buffer as DefaultVideoFrameTextureBuffer, !isCameraFrontFacing, -cameraOrientation),
+            getFrameOrientation()
+        )
     }
 
     private fun chooseStabilizationMode(captureRequestBuilder: CaptureRequest.Builder) {
@@ -191,5 +245,37 @@ class CameraCaptureVideoSource(
             }
         }
         logger.info(TAG, "Auto-focus is not available.");
+    }
+    private fun getFrameOrientation(): Int {
+        val wm =
+            context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        var rotation =  when (wm.defaultDisplay.rotation) {
+            Surface.ROTATION_90 -> 90
+            Surface.ROTATION_180 -> 180
+            Surface.ROTATION_270 -> 270
+            Surface.ROTATION_0 -> 0
+            else -> 0
+        }
+        if (!isCameraFrontFacing) {
+            rotation = 360 - rotation
+        }
+        return (cameraOrientation + rotation) % 360
+    }
+
+    private fun createTextureBufferWithModifiedTransformMatrix(
+        buffer: DefaultVideoFrameTextureBuffer, mirror: Boolean, rotation: Int
+    ): VideoFrameTextureBuffer {
+        val transformMatrix = Matrix()
+        // Perform mirror and rotation around (0.5, 0.5) since that is the center of the texture.
+        transformMatrix.preTranslate( /* dx= */0.5f,  /* dy= */0.5f)
+        if (mirror) {
+            transformMatrix.preScale( /* sx= */-1f,  /* sy= */1f)
+        }
+        transformMatrix.preRotate(rotation.toFloat())
+        transformMatrix.preTranslate( /* dx= */-0.5f,  /* dy= */-0.5f)
+
+        // The width and height are not affected by rotation since Camera2Session has set them to the
+        // value they should be after undoing the rotation.
+        return buffer.applyTransformMatrix(transformMatrix, buffer.getWidth(), buffer.getHeight())
     }
 }

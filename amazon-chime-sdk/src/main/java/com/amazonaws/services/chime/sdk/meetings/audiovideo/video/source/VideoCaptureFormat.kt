@@ -1,4 +1,4 @@
-package com.amazonaws.services.chime.sdk.meetings.device
+package com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source
 
 import android.util.Rational
 import kotlin.math.abs

@@ -7,7 +7,7 @@ package com.amazonaws.services.chime.sdk.meetings.audiovideo
 
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.metric.MetricsObserver
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameProcessor
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoSource
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source.VideoSource
 import com.amazonaws.services.chime.sdk.meetings.internal.audio.AudioClientController
 import com.amazonaws.services.chime.sdk.meetings.internal.audio.AudioClientObserver
 import com.amazonaws.services.chime.sdk.meetings.internal.metric.ClientMetricsCollector

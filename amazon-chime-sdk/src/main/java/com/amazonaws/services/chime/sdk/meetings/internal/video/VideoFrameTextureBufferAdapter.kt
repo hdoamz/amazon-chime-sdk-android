@@ -2,9 +2,10 @@ package com.amazonaws.services.chime.sdk.meetings.internal.video
 
 import android.graphics.Matrix
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrame
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameTextureBuffer
 
 class VideoFrameTextureBufferAdapter(
-    private val textureBuffer: VideoFrame.TextureBuffer
+    private val textureBuffer: VideoFrameTextureBuffer
 ) : com.xodee.client.video.VideoFrame.TextureBuffer {
 
     override fun getWidth(): Int {
@@ -36,6 +37,15 @@ class VideoFrameTextureBufferAdapter(
         scaleHeight: Int
     ): com.xodee.client.video.VideoFrame.Buffer? {
         return VideoFrameTextureBufferAdapter(
-            textureBuffer.cropAndScale(cropX, cropY, cropWidth, cropHeight, scaleWidth, scaleHeight) as VideoFrame.TextureBuffer)
+            textureBuffer.cropAndScale(cropX, cropY, cropWidth, cropHeight, scaleWidth, scaleHeight) as VideoFrameTextureBuffer
+        )
+    }
+
+    override fun release() {
+        textureBuffer.release()
+    }
+
+    override fun retain() {
+        textureBuffer.retain()
     }
 }
