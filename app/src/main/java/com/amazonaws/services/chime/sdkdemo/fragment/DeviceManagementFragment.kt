@@ -18,6 +18,7 @@ import android.widget.Spinner
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.AudioVideoFacade
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.DefaultVideoRenderView
 import com.amazonaws.services.chime.sdk.meetings.device.DeviceChangeObserver
 import com.amazonaws.services.chime.sdk.meetings.device.MediaDevice
 import com.amazonaws.services.chime.sdk.meetings.device.MediaDeviceType
@@ -122,6 +123,14 @@ class DeviceManagementFragment : Fragment(),
             populateAudioDeviceList(listAudioDevices())
             populateVideoDeviceList(listVideoDevices())
         }
+
+        val logger = (activity as MeetingActivity).getLogger()
+        val eglContext = (activity as MeetingActivity).getEglContext()
+        view.findViewById<DefaultVideoRenderView>(R.id.videoPreview)?.let{
+            it.init(logger, eglContext)
+            audioVideo.bindVideoCaptureOutput(it)
+        }
+
         return view
     }
 

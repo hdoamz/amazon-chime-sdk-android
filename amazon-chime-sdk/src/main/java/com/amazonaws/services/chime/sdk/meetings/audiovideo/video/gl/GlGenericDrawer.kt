@@ -18,7 +18,7 @@ import java.nio.FloatBuffer
  * This class covers the cases for most simple shaders and generates the necessary boiler plate.
  * Advanced shaders can always implement RendererCommon.GlDrawer directly.
  */
-internal class GlGenericDrawer(
+open class GlGenericDrawer(
     private val vertexShader: String,
     private val genericFragmentSource: String,
     private val shaderCallbacks: ShaderCallbacks
@@ -100,12 +100,12 @@ internal class GlGenericDrawer(
         // Bind the texture.
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesTextureId)
-        GlUtil.checkGlError("before")
+        GlUtil.checkGlError("glBindTexture")
 
         // Draw the texture.
         GLES20.glViewport(viewportX, viewportY, viewportWidth, viewportHeight)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
-        GlUtil.checkGlError("before")
+        GlUtil.checkGlError("glDrawArrays")
 
         // Unbind the texture as a precaution.
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, 0)

@@ -37,4 +37,12 @@ class VideoFrame(
             buffer.getHeight()
         } else buffer.getWidth()
     }
+
+    fun retain() {
+        buffer.retain()
+    }
+
+    fun release() {
+        buffer.release()
+    }
 }

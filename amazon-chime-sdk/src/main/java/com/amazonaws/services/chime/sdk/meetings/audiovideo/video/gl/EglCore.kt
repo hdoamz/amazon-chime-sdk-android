@@ -1,13 +1,11 @@
 package com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl
 
 import android.graphics.SurfaceTexture
-import android.opengl.EGL14
-import android.opengl.EGLConfig
-import android.opengl.EGLContext
-import android.opengl.EGLExt
+import android.opengl.*
 import android.util.Log
 import android.view.Surface
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
+
 
 /**
  * Core EGL state (display, context, config).
@@ -165,6 +163,52 @@ class EglCore constructor(
     }
 
     /**
+     * Creates an EGL surface associated with a Surface.
+     *
+     *
+     * If this is destined for MediaCodec, the EGLConfig should have the "recordable" attribute.
+     */
+    fun createWindowSurface(surface: Any): EGLSurface? {
+        if (surface !is Surface && surface !is SurfaceTexture) {
+            throw java.lang.RuntimeException("invalid surface: $surface")
+        }
+
+        // Create a window surface, and attach it to the Surface we received.
+        val surfaceAttribs = intArrayOf(
+            EGL14.EGL_NONE
+        )
+        eglSurface = EGL14.eglCreateWindowSurface(
+            eglDisplay, eglConfig, surface,
+            surfaceAttribs, 0
+        )
+        GlUtil.checkGlError("eglCreateWindowSurface")
+        if (eglSurface == null) {
+            throw java.lang.RuntimeException("surface was null")
+        }
+        return eglSurface
+    }
+
+    /**
+     * Creates an EGL surface associated with an offscreen buffer.
+     */
+    fun createOffscreenSurface(width: Int, height: Int): EGLSurface? {
+        val surfaceAttribs = intArrayOf(
+            EGL14.EGL_WIDTH, width,
+            EGL14.EGL_HEIGHT, height,
+            EGL14.EGL_NONE
+        )
+        eglSurface = EGL14.eglCreatePbufferSurface(
+            eglDisplay, eglConfig,
+            surfaceAttribs, 0
+        )
+        GlUtil.checkGlError("eglCreatePbufferSurface")
+        if (eglSurface == null) {
+            throw java.lang.RuntimeException("surface was null")
+        }
+        return eglSurface
+    }
+
+    /**
      * Makes our EGL context current, using the supplied surface for both "draw" and "read".
      */
     fun makeCurrent() {
@@ -175,5 +219,58 @@ class EglCore constructor(
         if (!EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)) {
             throw RuntimeException("eglMakeCurrent failed")
         }
+    }
+
+    /**
+     * Makes no context current.
+     */
+    fun makeNothingCurrent() {
+        if (!EGL14.eglMakeCurrent(
+                eglDisplay, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE,
+                EGL14.EGL_NO_CONTEXT
+            )
+        ) {
+            throw java.lang.RuntimeException("eglMakeCurrent failed")
+        }
+    }
+
+    /**
+     * Calls eglSwapBuffers.  Use this to "publish" the current frame.
+     *
+     * @return false on failure
+     */
+    fun swapBuffers(): Boolean {
+        return EGL14.eglSwapBuffers(eglDisplay, eglSurface)
+    }
+
+    /**
+     * Sends the presentation time stamp to EGL.  Time is expressed in nanoseconds.
+     */
+    fun setPresentationTime(nsecs: Long) {
+        EGLExt.eglPresentationTimeANDROID(eglDisplay, eglSurface, nsecs)
+    }
+
+    fun hasSurface(): Boolean {
+        return eglSurface !== EGL14.EGL_NO_SURFACE
+    }
+
+    fun surfaceWidth(): Int {
+        val widthArray = IntArray(1)
+        EGL14.eglQuerySurface(eglDisplay, eglSurface, EGL14.EGL_WIDTH, widthArray, 0)
+        return widthArray[0]
+    }
+
+    fun surfaceHeight(): Int {
+        val heightArray = IntArray(1)
+        EGL14.eglQuerySurface(eglDisplay, eglSurface, EGL14.EGL_HEIGHT, heightArray, 0)
+        return heightArray[0]
+    }
+
+    /**
+     * Destroys the specified surface.  Note the EGLSurface won't actually be destroyed if it's
+     * still current in a context.
+     */
+    fun releaseSurface() {
+        EGL14.eglDestroySurface(eglDisplay, eglSurface)
     }
 }

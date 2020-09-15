@@ -298,10 +298,6 @@ void main() {
         scaleWidth: Int,
         scaleHeight: Int
     ): VideoFrameBuffer? {
-        logger.info("TEST", "$cropX $cropY $cropWidth $cropHeight $scaleWidth $scaleHeight")
-        if (cropWidth == 0) {
-            logger.info("TEST", "here")
-        }
         val cropAndScaleMatrix = Matrix()
         // In WebRTC, Y=0 is the top row, while in OpenGL Y=0 is the bottom row. This means that the Y
         // direction is effectively reversed.

@@ -79,11 +79,11 @@
         android:paddingRight="32dp"
         android:text="@string/video_preview_title" />
 
-    <view
+    <com.amazonaws.services.chime.sdk.meetings.audiovideo.video.DefaultVideoRenderView
         android:id="@+id/videoPreview"
-        class="com.amazonaws.services.chime.sdk.meetings.audiovideo.video.DefaultVideoRenderView"
-        android:layout_width="wrap_content"
-        android:layout_height="160dp" />
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="visible" />
 
     <Button
         android:id="@+id/buttonJoin"
@@ -104,4 +104,5 @@
         android:layout_gravity="center"
         android:paddingLeft="20dp"
         android:paddingRight="20dp" />
+
 </LinearLayout>

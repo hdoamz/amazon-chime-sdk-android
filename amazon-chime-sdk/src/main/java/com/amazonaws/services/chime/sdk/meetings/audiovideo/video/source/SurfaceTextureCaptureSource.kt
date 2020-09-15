@@ -202,6 +202,7 @@ abstract class SurfaceTextureCaptureSource(
         val processedFrame = videoFrameProcessor?.process(frame) ?: frame
         sinks.forEach { it.onFrameCaptured(processedFrame) }
         buffer.release()
+        processedFrame.buffer.release()
     }
 
     private fun convertMatrixToAndroidGraphicsMatrix(transformMatrix: FloatArray): Matrix {

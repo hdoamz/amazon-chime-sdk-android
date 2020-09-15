@@ -5,6 +5,7 @@
 
 package com.amazonaws.services.chime.sdkdemo.activity
 
+import android.opengl.EGLContext
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -18,6 +19,7 @@ import com.amazonaws.services.chime.sdk.meetings.session.MeetingSessionConfigura
 import com.amazonaws.services.chime.sdk.meetings.session.MeetingSessionCredentials
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.ConsoleLogger
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.LogLevel
+import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 import com.amazonaws.services.chime.sdkdemo.R
 import com.amazonaws.services.chime.sdkdemo.data.JoinMeetingResponse
 import com.amazonaws.services.chime.sdkdemo.fragment.DeviceManagementFragment
@@ -35,7 +37,7 @@ class MeetingActivity : AppCompatActivity(),
     private lateinit var meetingId: String
     private lateinit var name: String
 
-    private lateinit var eglCore: EglCore
+    private val eglCore = EglCore(logger = logger)
 
     private val TAG = "InMeetingActivity"
 
@@ -49,7 +51,6 @@ class MeetingActivity : AppCompatActivity(),
             val meetingResponseJson =
                 intent.getStringExtra(HomeActivity.MEETING_RESPONSE_KEY) as String
             val sessionConfig = createSessionConfiguration(meetingResponseJson)
-            val eglCore = EglCore(logger = logger)
             val meetingSession = sessionConfig?.let {
                 logger.info(TAG, "Creating meeting session for meeting Id: $meetingId")
                 DefaultMeetingSession(
@@ -99,6 +100,10 @@ class MeetingActivity : AppCompatActivity(),
     fun getAudioVideo(): AudioVideoFacade = meetingSessionModel.audioVideo
 
     fun getMeetingSessionCredentials(): MeetingSessionCredentials = meetingSessionModel.credentials
+
+    fun getEglContext(): EGLContext = eglCore.eglContext
+
+    fun getLogger(): Logger = logger
 
     private fun urlRewriter(url: String): String {
         // You can change urls by url.replace("example.com", "my.example.com")
