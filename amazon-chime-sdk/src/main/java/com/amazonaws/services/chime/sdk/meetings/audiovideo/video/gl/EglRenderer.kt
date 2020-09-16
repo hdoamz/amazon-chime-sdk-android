@@ -169,8 +169,16 @@ class EglRenderer(val name: String?,
             if (eglCore != null && eglCore?.hasSurface() == false) {
                 eglCore?.createWindowSurface(surface)
                 eglCore?.makeCurrent()
+
+                /* clear the color buffer */
+                GLES20.glClearColor(1.0f, 1.0f, 0.0f, 1.0f);
+                GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+                eglCore?.swapBuffers()
+                GlUtil.checkGlError("test")
+
+
                 // Necessary for YUV frames with odd width.
-                GLES20.glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1)
+                //GLES20.glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1)
                 this.logger.info(TAG, "Created window surface for EGLRenderer")
 
             }

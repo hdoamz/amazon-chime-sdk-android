@@ -219,6 +219,7 @@ class EglCore constructor(
         if (!EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)) {
             throw RuntimeException("eglMakeCurrent failed")
         }
+
     }
 
     /**

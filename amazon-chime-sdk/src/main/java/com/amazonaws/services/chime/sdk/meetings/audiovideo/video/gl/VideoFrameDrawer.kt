@@ -219,7 +219,7 @@ class VideoFrameDrawer {
         if (additionalRenderMatrix != null) {
             renderMatrix.preConcat(additionalRenderMatrix)
         }
-        if (isTextureFrame) {
+        if (false) {
             lastI420Frame = null
             drawTexture(
                 drawer, frame.buffer as VideoFrameTextureBuffer, renderMatrix, renderWidth,

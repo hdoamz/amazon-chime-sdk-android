@@ -13,10 +13,7 @@ import android.opengl.EGLContext
 import android.util.AttributeSet
 import android.view.SurfaceHolder
 import android.view.SurfaceView
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.EglCore
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.EglRenderer
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.GlRectDrawer
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.RendererCommon
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.*
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -45,6 +42,7 @@ class DefaultVideoRenderView @JvmOverloads constructor(
 
     init {
         holder.addCallback(this)
+        videoLayoutMeasure.setScalingType(ScalingType.SCALE_ASPECT_FIT)
     }
 
     private fun getResourceName(): String? {
@@ -57,7 +55,6 @@ class DefaultVideoRenderView @JvmOverloads constructor(
 
     fun init(logger: Logger, eglContext: EGLContext = EGL14.EGL_NO_CONTEXT) {
         this.logger = logger
-        eglCore = EglCore(eglContext, logger)
         this.logger.info(TAG, "Initialized by application")
 
         rotatedFrameWidth = 0;
@@ -80,7 +77,10 @@ class DefaultVideoRenderView @JvmOverloads constructor(
         surfaceWidth = 0;
         surfaceHeight = 0;
         updateSurfaceSize();
-        holder?.let {eglRenderer.createEglSurface(it.surface) }
+
+        holder?.let {
+            eglRenderer.createEglSurface(it.surface)
+        }
     }
 
     override fun onMeasure(widthSpec: Int, heightSpec: Int) {
@@ -101,6 +101,7 @@ class DefaultVideoRenderView @JvmOverloads constructor(
     }
 
     override fun onFrameCaptured(frame: VideoFrame) {
+
         if (rotatedFrameWidth != frame.getRotatedWidth()
             || rotatedFrameHeight != frame.getRotatedHeight()
             || frameRotation != frame.rotation) {
