@@ -115,7 +115,7 @@ void main() {
     }
 
     private val i420TextureFrameBuffer =
-        GlFrameBuffer(
+        GlFrameBufferHelper(
             GLES20.GL_RGBA
         )
     private val shaderCallbacks: ShaderCallbacks = ShaderCallbacks()
