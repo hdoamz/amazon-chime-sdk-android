@@ -6,6 +6,8 @@
 package com.amazonaws.services.chime.sdk.meetings.internal.video
 
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.AudioVideoObserver
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrame
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameBuffer
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoPauseState
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoTileController
 import com.amazonaws.services.chime.sdk.meetings.internal.metric.ClientMetricsCollector
@@ -34,6 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.security.InvalidParameterException
 
 class DefaultVideoClientObserver(
     private val logger: Logger,
@@ -135,9 +138,26 @@ class DefaultVideoClientObserver(
             VIDEO_CLIENT_REMOTE_PAUSED_BY_LOCAL_BAD_NETWORK -> VideoPauseState.PausedForPoorConnection
             else -> VideoPauseState.Unpaused
         }
+
+        val sdkFrame = (frame as? com.xodee.client.video.VideoFrame)?.let {
+            val bufferAdapter: VideoFrameBuffer = when (frame.buffer) {
+                is com.xodee.client.video.VideoFrameTextureBuffer -> VideoFrameTextureBufferAdapter.VideoClientToSdk(
+                    frame.buffer as com.xodee.client.video.VideoFrameTextureBuffer
+                )
+                is com.xodee.client.video.VideoFrameI420Buffer -> VideoFrameI420BufferAdapter.VideoClientToSdk(
+                    frame.buffer as com.xodee.client.video.VideoFrameI420Buffer
+                )
+                is com.xodee.client.video.VideoFrameBuffer -> VideoFrameBufferAdapter.VideoClientToSdk(
+                    frame.buffer as com.xodee.client.video.VideoFrameBuffer
+                )
+                else -> throw InvalidParameterException("Video frame must have non null buffer")
+            }
+            VideoFrame(frame.width, frame.height, frame.timestamp, bufferAdapter, frame.rotation.toInt())
+        }
+
         notifyVideoTileObserver { observer ->
             observer.onReceiveFrame(
-                frame,
+                sdkFrame,
                 videoId,
                 profileId,
                 pauseState

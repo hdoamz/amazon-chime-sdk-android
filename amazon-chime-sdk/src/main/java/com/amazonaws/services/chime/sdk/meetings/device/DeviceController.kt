@@ -90,4 +90,12 @@ interface DeviceController {
      * @param mediaDevice the video device selected to use.
      */
     fun bindVideoCaptureOutput(videoSink: VideoSink)
+
+
+    /**
+     * Selects an video device to use.
+     *
+     * @param mediaDevice the video device selected to use.
+     */
+    fun unbindVideoCaptureOutput(videoSink: VideoSink)
 }

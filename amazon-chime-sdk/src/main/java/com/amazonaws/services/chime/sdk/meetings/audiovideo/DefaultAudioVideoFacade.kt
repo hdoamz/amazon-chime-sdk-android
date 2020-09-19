@@ -172,6 +172,10 @@ class DefaultAudioVideoFacade(
         deviceController.bindVideoCaptureOutput(videoSink)
     }
 
+    override fun unbindVideoCaptureOutput(videoSink: VideoSink) {
+        deviceController.unbindVideoCaptureOutput(videoSink)
+    }
+
     override fun addDeviceChangeObserver(observer: DeviceChangeObserver) {
         deviceController.addDeviceChangeObserver(observer)
     }

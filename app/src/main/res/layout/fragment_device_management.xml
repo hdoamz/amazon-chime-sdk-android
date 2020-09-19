@@ -82,7 +82,9 @@
     <com.amazonaws.services.chime.sdk.meetings.audiovideo.video.DefaultVideoRenderView
         android:id="@+id/videoPreview"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="194dp"
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="10dp"
         android:visibility="visible" />
 
     <Button

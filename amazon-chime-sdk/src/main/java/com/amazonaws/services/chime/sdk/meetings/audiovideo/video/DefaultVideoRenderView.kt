@@ -13,18 +13,20 @@ import android.opengl.EGLContext
 import android.util.AttributeSet
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import com.amazon.chime.webrtc.ThreadUtils
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.*
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.concurrent.CountDownLatch
 
 
 class DefaultVideoRenderView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyle: Int = 0
-) : SurfaceView(context, attrs, defStyle), SurfaceHolder.Callback, VideoRenderView {
+) : SurfaceView(context, attrs, defStyle), SurfaceHolder.Callback, EglRenderView {
     // Accessed only on the main thread.
     private var rotatedFrameWidth = 0
     private var rotatedFrameHeight = 0
@@ -33,7 +35,6 @@ class DefaultVideoRenderView @JvmOverloads constructor(
     private var surfaceWidth = 0
     private var surfaceHeight = 0
 
-    private lateinit var eglCore: EglCore
     private val eglRenderer: EglRenderer = EglRenderer(getResourceName())
     private val videoLayoutMeasure: RendererCommon.VideoLayoutMeasure =
         RendererCommon.VideoLayoutMeasure()
@@ -53,9 +54,9 @@ class DefaultVideoRenderView @JvmOverloads constructor(
         }
     }
 
-    fun init(logger: Logger, eglContext: EGLContext = EGL14.EGL_NO_CONTEXT) {
+    override fun init(logger: Logger, eglContext: EGLContext) {
         this.logger = logger
-        this.logger.info(TAG, "Initialized by application")
+        this.logger.info(TAG, "Initialized")
 
         rotatedFrameWidth = 0;
         rotatedFrameHeight = 0;
@@ -63,17 +64,19 @@ class DefaultVideoRenderView @JvmOverloads constructor(
 
     }
 
+    override fun dispose() {
+        this.logger.info(TAG, "Releasing")
+        eglRenderer.release()
+    }
+
     override fun surfaceChanged(holder: SurfaceHolder?, format: Int, width: Int, height: Int) {
-        logger.info(TAG, "Surface changed: format:$format, dimensions:${width}x${height}")
     }
 
     override fun surfaceDestroyed(holder: SurfaceHolder?) {
-        logger.info(TAG, "Surface destroyed")
+        eglRenderer.releaseEglSurface();
     }
 
     override fun surfaceCreated(holder: SurfaceHolder?) {
-        logger.info(TAG, "Surface created")
-
         surfaceWidth = 0;
         surfaceHeight = 0;
         updateSurfaceSize();
@@ -120,7 +123,6 @@ class DefaultVideoRenderView @JvmOverloads constructor(
         }
 
         eglRenderer.render(frame)
-        frame.release()
         logger.info(TAG, "Frame captured")
     }
 

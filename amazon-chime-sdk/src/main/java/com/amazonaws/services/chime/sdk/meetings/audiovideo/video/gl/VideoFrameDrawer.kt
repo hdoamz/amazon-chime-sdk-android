@@ -107,13 +107,13 @@ class VideoFrameDrawer {
 
         fun uploadFromBuffer(buffer: VideoFrameI420Buffer): IntArray {
             val strides =
-                intArrayOf(buffer.strideY(), buffer.strideU(), buffer.strideV())
+                intArrayOf(buffer.strideY, buffer.strideU, buffer.strideV)
             val planes = arrayOf<ByteBuffer?>(
-                buffer.dataY(),
-                buffer.dataU(),
-                buffer.dataV()
+                buffer.dataY,
+                buffer.dataU,
+                buffer.dataV
             )
-            return uploadYuvData(buffer.getWidth(), buffer.getHeight(), strides, planes)
+            return uploadYuvData(buffer.width, buffer.height, strides, planes)
         }
 
         /**
@@ -279,19 +279,19 @@ class VideoFrameDrawer {
             viewportHeight: Int
         ) {
             val finalMatrix =
-                Matrix(buffer.transformMatrix())
+                Matrix(buffer.transformMatrix)
             finalMatrix.preConcat(renderMatrix)
             val finalGlMatrix =
                 convertMatrixFromAndroidGraphicsMatrix(
                     finalMatrix
                 )
-            when (buffer.type()) {
+            when (buffer.type) {
                 VideoFrameTextureBuffer.Type.OES -> drawer.drawOes(
-                    buffer.textureId(), finalGlMatrix, frameWidth, frameHeight, viewportX,
+                    buffer.textureId, finalGlMatrix, frameWidth, frameHeight, viewportX,
                     viewportY, viewportWidth, viewportHeight
                 )
                 VideoFrameTextureBuffer.Type.RGB -> drawer.drawRgb(
-                    buffer.textureId(), finalGlMatrix, frameWidth, frameHeight, viewportX,
+                    buffer.textureId, finalGlMatrix, frameWidth, frameHeight, viewportX,
                     viewportY, viewportWidth, viewportHeight
                 )
             }

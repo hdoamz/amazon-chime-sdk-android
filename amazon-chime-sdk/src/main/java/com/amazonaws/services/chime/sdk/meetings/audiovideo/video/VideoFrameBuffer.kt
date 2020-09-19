@@ -1,8 +1,8 @@
 package com.amazonaws.services.chime.sdk.meetings.audiovideo.video
 
 interface VideoFrameBuffer {
-    fun getWidth(): Int
-    fun getHeight(): Int
+    val width: Int
+    val height: Int
 
     fun toI420(): VideoFrameI420Buffer?
     fun cropAndScale(

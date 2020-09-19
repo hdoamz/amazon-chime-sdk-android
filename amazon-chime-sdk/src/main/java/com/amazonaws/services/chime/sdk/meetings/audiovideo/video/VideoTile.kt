@@ -34,7 +34,7 @@ interface VideoTile {
      *
      * @param frame: [Any] - Video Frame
      */
-    fun renderFrame(frame: Any)
+    fun renderFrame(frame: VideoFrame)
 
     /**
      * Unbinds the [videoRenderView] from tile.

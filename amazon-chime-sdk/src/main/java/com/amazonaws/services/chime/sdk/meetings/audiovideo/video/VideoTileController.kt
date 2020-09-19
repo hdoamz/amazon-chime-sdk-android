@@ -29,7 +29,7 @@ interface VideoTileController : VideoTileControllerFacade {
      * @param pauseState: [VideoPauseState] - Current pause state of the video being received
      */
     fun onReceiveFrame(
-        frame: Any?,
+        frame: VideoFrame?,
         videoId: Int,
         attendeeId: String?,
         pauseState: VideoPauseState

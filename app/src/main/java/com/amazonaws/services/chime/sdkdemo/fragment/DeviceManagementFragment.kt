@@ -134,6 +134,14 @@ class DeviceManagementFragment : Fragment(),
         return view
     }
 
+    override fun onDestroyView() {
+        super.onDestroyView()
+
+        super.getView()?.findViewById<DefaultVideoRenderView>(R.id.videoPreview)?.let{
+            audioVideo.unbindVideoCaptureOutput(it)
+        }
+    }
+
     private val onAudioDeviceSelected = object : AdapterView.OnItemSelectedListener {
         override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
             audioVideo.chooseAudioDevice(parent?.getItemAtPosition(position) as MediaDevice)

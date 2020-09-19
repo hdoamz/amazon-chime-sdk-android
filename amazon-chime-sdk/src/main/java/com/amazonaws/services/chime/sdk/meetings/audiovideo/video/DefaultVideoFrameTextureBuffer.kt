@@ -18,11 +18,11 @@ import kotlin.math.roundToInt
 
 class DefaultVideoFrameTextureBuffer(
     private val logger: Logger,
-    private val width: Int,
-    private val height: Int,
-    private val textureId: Int,
-    private val transformMatrix: Matrix?,
-    private val type: VideoFrameTextureBuffer.Type,
+    override val width: Int,
+    override val height: Int,
+    override val textureId: Int,
+    override val transformMatrix: Matrix?,
+    override val type: VideoFrameTextureBuffer.Type,
     private val releaseCallback: Runnable,
     private val handler: Handler
 ) : VideoFrameTextureBuffer {
@@ -143,26 +143,6 @@ void main() {
     ) : this(logger, width, height, textureId, transformMatrix, type, releaseCallback, handler) {
         this.unscaledWidth = unscaledWidth
         this.unscaledHeight = unscaledHeight
-    }
-
-    override fun transformMatrix(): Matrix? {
-        return transformMatrix
-    }
-
-    override fun type(): VideoFrameTextureBuffer.Type {
-        return type
-    }
-
-    override fun getWidth(): Int {
-        return width
-    }
-
-    override fun getHeight(): Int {
-        return height
-    }
-
-    override fun textureId(): Int {
-        return textureId;
     }
 
     override fun toI420(): VideoFrameI420Buffer? {
@@ -345,20 +325,20 @@ void main() {
         viewportHeight: Int
     ) {
         val finalMatrix =
-            Matrix(transformMatrix())
+            Matrix(transformMatrix)
         finalMatrix.preConcat(renderMatrix)
         val finalGlMatrix: FloatArray =
             RendererCommon.convertMatrixFromAndroidGraphicsMatrix(
                 finalMatrix
             )
 
-        when (type()) {
+        when (type) {
             VideoFrameTextureBuffer.Type.OES -> drawer.drawOes(
-                textureId(), finalGlMatrix, frameWidth, frameHeight, viewportX,
+                textureId, finalGlMatrix, frameWidth, frameHeight, viewportX,
                 viewportY, viewportWidth, viewportHeight
             )
             VideoFrameTextureBuffer.Type.RGB -> drawer.drawRgb(
-                textureId(), finalGlMatrix, frameWidth, frameHeight, viewportX,
+                textureId, finalGlMatrix, frameWidth, frameHeight, viewportX,
                 viewportY, viewportWidth, viewportHeight
             )
         }

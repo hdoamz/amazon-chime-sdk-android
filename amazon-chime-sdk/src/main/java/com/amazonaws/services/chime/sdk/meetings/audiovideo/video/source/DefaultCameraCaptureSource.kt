@@ -276,6 +276,6 @@ class DefaultCameraCaptureSource(
 
         // The width and height are not affected by rotation since Camera2Session has set them to the
         // value they should be after undoing the rotation.
-        return buffer.applyTransformMatrix(transformMatrix, buffer.getWidth(), buffer.getHeight())
+        return buffer.applyTransformMatrix(transformMatrix, buffer.width, buffer.height)
     }
 }

@@ -194,15 +194,26 @@ abstract class SurfaceTextureCaptureSource(
                 VideoFrameTextureBuffer.Type.OES, Runnable { frameReleased() }, handler
             )
         val timestamp = timestampAligner.translateTimestamp(surfaceTexture.timestamp)
-        val frame =
+        val originalFrame =
             VideoFrame(
                 format.width, format.height,
                 timestamp, buffer
             )
-        val processedFrame = videoFrameProcessor?.process(frame) ?: frame
-        sinks.forEach { it.onFrameCaptured(processedFrame) }
-        buffer.release()
-        processedFrame.buffer.release()
+
+        val newFrame = if (videoFrameProcessor != null) {
+            val processedFrame = videoFrameProcessor?.process(originalFrame)
+            originalFrame.release()
+            processedFrame
+        } else {
+            originalFrame
+        }
+
+        newFrame?.let {frame ->
+            sinks.forEach {
+                it.onFrameCaptured(frame)
+            }
+            frame.release()
+        }
     }
 
     private fun convertMatrixToAndroidGraphicsMatrix(transformMatrix: FloatArray): Matrix {

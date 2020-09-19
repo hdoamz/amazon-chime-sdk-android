@@ -37,9 +37,9 @@ class VideoSourceAdapter(
 
     override fun onFrameCaptured(frame: VideoFrame) {
         val buffer = when (frame.buffer) {
-            is VideoFrameTextureBuffer -> VideoFrameTextureBufferAdapter(frame.buffer as VideoFrameTextureBuffer)
-            is VideoFrameI420Buffer -> VideoFrameI420BufferAdapter(frame.buffer as VideoFrameI420Buffer)
-            else -> VideoFrameBufferAdapter(frame.buffer)
+            is VideoFrameTextureBuffer -> VideoFrameTextureBufferAdapter.SdkToVideoClient(frame.buffer as VideoFrameTextureBuffer)
+            is VideoFrameI420Buffer -> VideoFrameI420BufferAdapter.SdkToVideoClient(frame.buffer as VideoFrameI420Buffer)
+            else -> VideoFrameBufferAdapter.SdkToVideoClient(frame.buffer)
         }
 
         val videoClientFrame = com.xodee.client.video.VideoFrame(

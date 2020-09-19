@@ -549,15 +549,7 @@ class MeetingFragment : Fragment(),
             audioVideo.stopLocalVideo()
             buttonCamera.setImageResource(R.drawable.button_camera)
         } else {
-            if (hasPermissionsAlready()) {
-                startLocalVideo()
-                logWithFunctionName("getActiveCamera", "${audioVideo.getActiveCamera()?.type}")
-            } else {
-                requestPermissions(
-                    WEBRTC_PERM,
-                    WEBRTC_PERMISSION_REQUEST_CODE
-                )
-            }
+            startLocalVideo()
         }
         meetingModel.isCameraOn = !meetingModel.isCameraOn
         refreshNoVideosOrScreenShareAvailableText()
@@ -584,14 +576,13 @@ class MeetingFragment : Fragment(),
     }
 
     private fun startLocalVideo() {
-        val source = context?.let { DefaultFileCaptureSource(it, logger) }
-        audioVideo.chooseVideoSource(source)
+//        val source = context?.let { DefaultFileCaptureSource(it, logger) }
+//        audioVideo.chooseVideoSource(source)
+//        val wm = context?.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+//        val displayMetrics = DisplayMetrics()
+//        wm.defaultDisplay.getRealMetrics(displayMetrics)
+//        source?.start(VideoCaptureFormat(displayMetrics.widthPixels, displayMetrics.heightPixels, 15))
 
-        val wm = context?.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        val displayMetrics = DisplayMetrics()
-        wm.defaultDisplay.getRealMetrics(displayMetrics)
-
-        source?.start(VideoCaptureFormat(displayMetrics.widthPixels, displayMetrics.heightPixels, 15))
         audioVideo.startLocalVideo()
         buttonCamera.setImageResource(R.drawable.button_camera_on)
         selectTab(SubTab.Video.position)
@@ -619,12 +610,6 @@ class MeetingFragment : Fragment(),
                 }
                 return
             }
-        }
-    }
-
-    private fun hasPermissionsAlready(): Boolean {
-        return WEBRTC_PERM.all {
-            ContextCompat.checkSelfPermission(context!!, it) == PackageManager.PERMISSION_GRANTED
         }
     }
 
@@ -749,7 +734,7 @@ class MeetingFragment : Fragment(),
         uiScope.launch {
             logger.info(
                 TAG,
-                "Video track added, titleId: ${tileState.tileId}, attendeeId: ${tileState.attendeeId}" +
+                "Video tile added, tileId: ${tileState.tileId}, attendeeId: ${tileState.attendeeId}" +
                         ", isContent ${tileState.isContent} with size ${tileState.videoStreamContentWidth}*${tileState.videoStreamContentHeight}"
             )
             if (tileState.isContent) {
@@ -779,7 +764,7 @@ class MeetingFragment : Fragment(),
 
             logger.info(
                 TAG,
-                "Video track removed, titleId: $tileId, attendeeId: ${tileState.attendeeId}"
+                "Video track removed, tileId: $tileId, attendeeId: ${tileState.attendeeId}"
             )
             audioVideo.unbindVideoView(tileId)
             if (meetingModel.currentVideoTiles.containsKey(tileId)) {

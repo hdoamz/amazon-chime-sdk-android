@@ -14,14 +14,12 @@ import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrame
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
-import java.util.concurrent.CountDownLatch
 
 
 class EglRenderer(val name: String?,
                   private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()) {
-    private lateinit var logger: Logger
+    private var logger: Logger? = null
     private val TAG = "EglRenderer"
-    private val LOG_INTERVAL_SEC: Long = 4
 
     interface FrameListener {
         fun onFrame(frame: Bitmap?)
@@ -44,12 +42,7 @@ class EglRenderer(val name: String?,
     // on |handlerLock|.
     private val handlerLock = Any()
 
-    private val thread: HandlerThread = HandlerThread("SurfaceTextureVideoSource")
-    private lateinit var handler: Handler
-
-    private val frameListeners: ArrayList<FrameListenerAndParams> = ArrayList()
-
-    private val errorCallback: ErrorCallback? = null
+    private var handler: Handler? = null
 
     // Variables for fps reduction.
     private val fpsReductionLock = Any()
@@ -64,6 +57,8 @@ class EglRenderer(val name: String?,
     // EGL and GL resources for drawing YUV/OES textures. After initialization, these are only
     // accessed from the render thread.
     private var eglCore: EglCore? = null
+    private val surface: Any? = null
+
     private lateinit var drawer: RendererCommon.GlDrawer
     private var usePresentationTimeStamp = false
     private val drawMatrix: Matrix = Matrix()
@@ -123,13 +118,15 @@ class EglRenderer(val name: String?,
         usePresentationTimeStamp: Boolean,
         logger: Logger
     ) {
+        val thread = HandlerThread("SurfaceTextureVideoSource")
         thread.start()
-        handler = Handler(thread.looper)
+        this.handler = Handler(thread.looper)
 
         this.drawer = drawer
         this.usePresentationTimeStamp = usePresentationTimeStamp
         this.logger = logger
 
+        val handler = this.handler ?: throw UnknownError("No handler in init")
         // Create EGL context on the newly created render thread. It should be possibly to create the
         // context on this thread and make it current on the render thread, but this causes failure on
         // some Marvel based JB devices. https://bugs.chromium.org/p/webrtc/issues/detail?id=6350.
@@ -139,8 +136,9 @@ class EglRenderer(val name: String?,
                     eglContext,
                     logger = logger
                 )
+            surface?.let { createEglSurfaceInternal(it) }
         }
-        logger.info(TAG, "Renderer initialized")
+        this.logger?.info(TAG, "Renderer initialized")
     }
 
     /**
@@ -165,6 +163,7 @@ class EglRenderer(val name: String?,
     }
 
     private fun createEglSurfaceInternal(surface: Any) {
+        val handler = this.handler ?: throw UnknownError("No handler in call to create EGL Surface")
         handler.post {
             if (eglCore != null && eglCore?.hasSurface() == false) {
                 eglCore?.createWindowSurface(surface)
@@ -174,14 +173,23 @@ class EglRenderer(val name: String?,
                 GLES20.glClearColor(1.0f, 1.0f, 0.0f, 1.0f);
                 GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
                 eglCore?.swapBuffers()
-                GlUtil.checkGlError("test")
 
 
                 // Necessary for YUV frames with odd width.
-                //GLES20.glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1)
-                this.logger.info(TAG, "Created window surface for EGLRenderer")
+                // GLES20.glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1)
+                logger?.info(TAG, "Created window surface for EGLRenderer")
 
             }
+        }
+    }
+
+    fun releaseEglSurface() {
+        val handler = this.handler ?: return
+        runBlocking(handler.asCoroutineDispatcher().immediate) {
+            logger?.info(TAG, "Releasing EGL surface")
+
+            eglCore?.makeNothingCurrent()
+            eglCore?.releaseSurface()
         }
     }
 
@@ -192,12 +200,12 @@ class EglRenderer(val name: String?,
             }
             pendingFrame = frame
             pendingFrame?.retain()
+            val handler = handler ?: throw UnknownError("No handler in render function")
             handler.post(::renderFrameOnRenderThread)
         }
     }
 
     fun setLayoutAspectRatio(layoutAspectRatio: Float) {
-        logger.info(TAG, "setLayoutAspectRatio: $layoutAspectRatio")
         synchronized(layoutLock) { this.layoutAspectRatio = layoutAspectRatio }
     }
     /**
@@ -207,19 +215,27 @@ class EglRenderer(val name: String?,
      * don't call this function, the GL resources might leak.
      */
     fun release() {
-        val eglCleanupBarrier = CountDownLatch(1)
-
+        val handler = handler ?: throw UnknownError("No handler in release")
         runBlocking(handler.asCoroutineDispatcher().immediate) {
-
+            logger?.info(TAG, "Releasing EGL resources")
             // Detach current shader program.
             GLES20.glUseProgram( /* program= */0)
             frameDrawer.release()
-            bitmapTextureFramebuffer.release()
-            frameListeners.clear()
-            eglCleanupBarrier.countDown()
+
+            eglCore?.makeNothingCurrent()
+            eglCore?.release()
+            eglCore = null
         }
-        val renderLooper: Looper = handler.getLooper()
+        val renderLooper: Looper = handler.looper
         renderLooper.quitSafely()
+        this.handler = null
+
+        synchronized (frameLock) {
+            if (pendingFrame != null) {
+                pendingFrame?.release();
+                pendingFrame = null;
+            }
+        }
     }
 
     private fun renderFrameOnRenderThread() {
@@ -293,5 +309,6 @@ class EglRenderer(val name: String?,
                 }
             }
         }
+        frame.release()
     }
 }

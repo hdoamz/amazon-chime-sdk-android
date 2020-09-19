@@ -28,14 +28,14 @@ class VideoFrame(
 
     fun getRotatedWidth(): Int {
         return if (rotation % 180 == 0) {
-            buffer.getWidth()
-        } else buffer.getHeight()
+            buffer.width
+        } else buffer.height
     }
 
     fun getRotatedHeight(): Int {
         return if (rotation % 180 == 0) {
-            buffer.getHeight()
-        } else buffer.getWidth()
+            buffer.height
+        } else buffer.width
     }
 
     fun retain() {

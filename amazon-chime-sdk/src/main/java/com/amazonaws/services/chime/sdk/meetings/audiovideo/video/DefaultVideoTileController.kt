@@ -7,7 +7,6 @@ package com.amazonaws.services.chime.sdk.meetings.audiovideo.video
 
 import android.opengl.EGLContext
 import com.amazon.chime.webrtc.EglBase
-import com.amazon.chime.webrtc.VideoRenderer
 import com.amazonaws.services.chime.sdk.meetings.internal.utils.ObserverUtils
 import com.amazonaws.services.chime.sdk.meetings.internal.video.VideoClientController
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
@@ -38,7 +37,7 @@ class DefaultVideoTileController(
     }
 
     override fun onReceiveFrame(
-        frame: Any?,
+        frame: VideoFrame?,
         videoId: Int,
         attendeeId: String?,
         pauseState: VideoPauseState
@@ -53,16 +52,12 @@ class DefaultVideoTileController(
          * In both pause and stop cases, the frame is null but the pauseType differs
          */
         val tile: VideoTile? = videoTileMap[videoId]
-        var videoStreamContentWidth = 0
-        var videoStreamContentHeight = 0
 
-        if (frame is VideoRenderer.I420Frame) {
-            videoStreamContentWidth = frame.width
-            videoStreamContentHeight = frame.height
-        }
+        val videoStreamContentWidth = frame?.width ?: 0
+        val videoStreamContentHeight = frame?.height ?: 0
 
         logger.info(TAG, "onReceiveFrame $videoStreamContentWidth x $videoStreamContentHeight")
-
+        frame?.retain()
         if (tile != null) {
             if (frame == null && pauseState == VideoPauseState.Unpaused) {
                 logger.info(

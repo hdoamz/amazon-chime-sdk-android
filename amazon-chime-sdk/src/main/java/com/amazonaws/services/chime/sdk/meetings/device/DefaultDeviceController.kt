@@ -309,6 +309,11 @@ class DefaultDeviceController(
         cameraCaptureVideoSource?.addSink(videoSink)
     }
 
+    override fun unbindVideoCaptureOutput(videoSink: VideoSink) {
+        sink = null
+        cameraCaptureVideoSource?.removeSink(videoSink)
+    }
+
     override fun addDeviceChangeObserver(observer: DeviceChangeObserver) {
         deviceChangeObservers.add(observer)
     }

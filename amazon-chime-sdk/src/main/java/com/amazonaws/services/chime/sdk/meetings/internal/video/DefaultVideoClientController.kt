@@ -40,6 +40,7 @@ class DefaultVideoClientController(
     private val TOPIC_REGEX = "^[a-zA-Z0-9_-]{1,36}$".toRegex()
     private val TAG = "DefaultVideoClientController"
 
+    private val VIDEO_CLIENT_FLAG_ENABLE_USE_HW_DECODE_AND_RENDER = 64
     /**
      * This flag will enable higher resolution for videos
      */
@@ -188,6 +189,7 @@ class DefaultVideoClientController(
         flag = flag or VIDEO_CLIENT_FLAG_ENABLE_TWO_SIMULCAST_STREAMS
         // DELETE ME (Comment for testing previous camera)
         flag = flag or VIDEO_CLIENT_FLAG_DISABLE_CAPTURER
+        flag = flag or VIDEO_CLIENT_FLAG_ENABLE_USE_HW_DECODE_AND_RENDER
         videoClient?.startServiceV2(
             "",
             "",

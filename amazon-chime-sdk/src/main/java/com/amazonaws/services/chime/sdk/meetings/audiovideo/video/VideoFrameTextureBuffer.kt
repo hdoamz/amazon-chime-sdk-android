@@ -10,7 +10,7 @@ interface VideoFrameTextureBuffer : VideoFrameBuffer {
         RGB(GLES20.GL_TEXTURE_2D);
     }
 
-    fun textureId(): Int
-    fun transformMatrix(): Matrix?
-    fun type(): Type
+    val textureId: Int
+    val transformMatrix: Matrix?
+    val type: Type
 }
