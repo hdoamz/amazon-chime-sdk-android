@@ -7,7 +7,7 @@ import android.opengl.GLES20
  * buffer. Intended for simple tasks such as texture copy, texture downscaling, and texture color
  * conversion. This class is not thread safe and must be used by a thread with an active GL context.
  */
-class GlTextureFrameBuffer(pixelFormat: Int) {
+class GlFrameBuffer(pixelFormat: Int) {
     private var pixelFormat = 0
 
     /** Gets the OpenGL frame buffer id. This value is only valid after setSize() has been called.  */

@@ -79,7 +79,6 @@ class GlShader(vertexSource: String, fragmentSource: String) {
     }
 
     companion object {
-        private const val TAG = "GlShader"
         private fun compileShader(shaderType: Int, source: String): Int {
             val shader = GLES20.glCreateShader(shaderType)
             if (shader == 0) {

@@ -8,7 +8,6 @@ import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameBuff
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameI420Buffer
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameTextureBuffer
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.GlUtil.generateTexture
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.RendererCommon.convertMatrixFromAndroidGraphicsMatrix
 import com.xodee.client.video.YuvHelper
 import java.nio.ByteBuffer
 
@@ -177,14 +176,14 @@ class VideoFrameDrawer {
     private val renderMatrix = Matrix()
     fun drawFrame(
         frame: VideoFrame,
-        drawer: RendererCommon.GlDrawer
+        drawer: GlDrawer
     ) {
         drawFrame(frame, drawer, null /* additionalRenderMatrix */)
     }
 
     fun drawFrame(
         frame: VideoFrame,
-        drawer: RendererCommon.GlDrawer,
+        drawer: GlDrawer,
         additionalRenderMatrix: Matrix?
     ) {
         drawFrame(
@@ -195,7 +194,7 @@ class VideoFrameDrawer {
 
     fun drawFrame(
         frame: VideoFrame,
-        drawer: RendererCommon.GlDrawer,
+        drawer: GlDrawer,
         additionalRenderMatrix: Matrix?,
         viewportX: Int,
         viewportY: Int,
@@ -238,7 +237,7 @@ class VideoFrameDrawer {
             }
             drawer.drawYuv(
                 yuvUploader.yuvTextures,
-                convertMatrixFromAndroidGraphicsMatrix(
+                GlUtil.convertMatrixFromAndroidGraphicsMatrix(
                     renderMatrix
                 ), renderWidth,
                 renderHeight, viewportX, viewportY, viewportWidth, viewportHeight
@@ -268,7 +267,7 @@ class VideoFrameDrawer {
          * transformationMatrix)
          */
         fun drawTexture(
-            drawer: RendererCommon.GlDrawer,
+            drawer: GlDrawer,
             buffer: VideoFrameTextureBuffer,
             renderMatrix: Matrix?,
             frameWidth: Int,
@@ -282,7 +281,7 @@ class VideoFrameDrawer {
                 Matrix(buffer.transformMatrix)
             finalMatrix.preConcat(renderMatrix)
             val finalGlMatrix =
-                convertMatrixFromAndroidGraphicsMatrix(
+                GlUtil.convertMatrixFromAndroidGraphicsMatrix(
                     finalMatrix
                 )
             when (buffer.type) {

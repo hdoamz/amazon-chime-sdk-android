@@ -10,8 +10,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.opengl.EGLContext
 import androidx.core.content.ContextCompat
-import com.amazon.chime.webrtc.EglBase
-import com.amazon.chime.webrtc.EglBase14
 import com.amazonaws.services.chime.sdk.BuildConfig
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source.VideoSource
 import com.amazonaws.services.chime.sdk.meetings.session.MeetingSessionConfiguration

@@ -8,7 +8,7 @@ void main() {
 }
 """
 /** Simplest possible GL shader that just draws frames as opaque quads.  */
-class GlRectDrawer :  GlGenericDrawer(FRAGMENT_SHADER, GlRectDrawer.ShaderCallbacks()) {
+class GlRectDrawer :  GlGenericDrawer(FRAGMENT_SHADER, ShaderCallbacks()) {
 
     private class ShaderCallbacks :
         GlGenericDrawer.ShaderCallbacks {

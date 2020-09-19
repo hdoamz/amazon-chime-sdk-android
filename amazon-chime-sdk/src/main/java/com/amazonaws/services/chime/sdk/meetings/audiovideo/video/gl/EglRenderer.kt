@@ -16,8 +16,7 @@ import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 
 
-class EglRenderer(val name: String?,
-                  private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()) {
+class EglRenderer(private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()) {
     private var logger: Logger? = null
     private val TAG = "EglRenderer"
 
@@ -34,7 +33,7 @@ class EglRenderer(val name: String?,
     private class FrameListenerAndParams(
         val listener: FrameListener,
         val scale: Float,
-        val drawer: RendererCommon.GlDrawer,
+        val drawer: GlDrawer,
         val applyFpsReduction: Boolean
     )
 
@@ -59,7 +58,7 @@ class EglRenderer(val name: String?,
     private var eglCore: EglCore? = null
     private val surface: Any? = null
 
-    private lateinit var drawer: RendererCommon.GlDrawer
+    private lateinit var drawer: GlDrawer
     private var usePresentationTimeStamp = false
     private val drawMatrix: Matrix = Matrix()
 
@@ -78,32 +77,6 @@ class EglRenderer(val name: String?,
     // If true, mirrors the video stream vertically.
     private val mirrorVertically = false
 
-    // These variables are synchronized on |statisticsLock|.
-    private val statisticsLock = Any()
-
-    // Total number of video frames received in renderFrame() call.
-    private var framesReceived = 0
-
-    // Number of video frames dropped by renderFrame() because previous frame has not been rendered
-    // yet.
-    private var framesDropped = 0
-
-    // Number of rendered video frames.
-    private var framesRendered = 0
-
-    // Start time for counting these statistics, or 0 if we haven't started measuring yet.
-    private val statisticsStartTimeNs: Long = 0
-
-    // Time in ns spent in renderFrameOnRenderThread() function.
-    private var renderTimeNs: Long = 0
-
-    // Time in ns spent by the render thread in the swapBuffers() function.
-    private var renderSwapBufferTimeNs: Long = 0
-
-    // Used for bitmap capturing.
-    private val bitmapTextureFramebuffer =
-        GlTextureFrameBuffer(GLES20.GL_RGBA)
-
     /**
      * Initialize this class, sharing resources with |sharedContext|. The custom |drawer| will be used
      * for drawing frames on the EGLSurface. This class is responsible for calling release() on
@@ -114,7 +87,7 @@ class EglRenderer(val name: String?,
      */
     fun init(
         eglContext: EGLContext = EGL14.EGL_NO_CONTEXT,
-        drawer: RendererCommon.GlDrawer,
+        drawer: GlDrawer,
         usePresentationTimeStamp: Boolean,
         logger: Logger
     ) {
@@ -148,7 +121,7 @@ class EglRenderer(val name: String?,
      */
     fun init(
         eglContext: EGLContext = EGL14.EGL_NO_CONTEXT,
-        drawer: RendererCommon.GlDrawer,
+        drawer: GlDrawer,
         logger: Logger
     ) {
         init(eglContext, drawer,  /* usePresentationTimeStamp= */false, logger)

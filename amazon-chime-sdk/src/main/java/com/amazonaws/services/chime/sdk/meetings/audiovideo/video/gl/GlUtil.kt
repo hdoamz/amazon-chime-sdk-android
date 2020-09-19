@@ -1,8 +1,8 @@
 package com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl
 
+import android.graphics.Matrix
 import android.opengl.GLES20
 import android.opengl.GLES30
-import android.opengl.Matrix
 import android.util.Log
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -31,10 +31,8 @@ import java.nio.FloatBuffer
  * Some OpenGL utility functions.
  */
 object GlUtil {
-    const val TAG = "Grafika"
+    const val TAG = "GlUtil"
 
-    /** Identity matrix for general use.  Don't modify or life will get weird.  */
-    val IDENTITY_MATRIX: FloatArray
     private const val SIZEOF_FLOAT = 4
 
     /**
@@ -133,29 +131,6 @@ object GlUtil {
         return fb
     }
 
-    /**
-     * Writes GL version info to the log.
-     */
-    fun logVersionInfo() {
-        Log.i(TAG, "vendor  : " + GLES20.glGetString(GLES20.GL_VENDOR))
-        Log.i(TAG, "renderer: " + GLES20.glGetString(GLES20.GL_RENDERER))
-        Log.i(TAG, "version : " + GLES20.glGetString(GLES20.GL_VERSION))
-        if (false) {
-            val values = IntArray(1)
-            GLES30.glGetIntegerv(GLES30.GL_MAJOR_VERSION, values, 0)
-            val majorVersion = values[0]
-            GLES30.glGetIntegerv(GLES30.GL_MINOR_VERSION, values, 0)
-            val minorVersion = values[0]
-            if (GLES30.glGetError() == GLES30.GL_NO_ERROR) {
-                Log.i(TAG, "iversion: $majorVersion.$minorVersion")
-            }
-        }
-    }
-
-    init {
-        IDENTITY_MATRIX = FloatArray(16)
-        Matrix.setIdentityM(IDENTITY_MATRIX, 0)
-    }
 
     /**
      * Generate texture with standard parameters.
@@ -173,5 +148,33 @@ object GlUtil {
             "generateTexture"
         )
         return textureId
+    }
+
+    /** Converts android.graphics.Matrix to a float[16] matrix array.  */
+    fun convertMatrixFromAndroidGraphicsMatrix(matrix: Matrix): FloatArray {
+        val values = FloatArray(9)
+        matrix.getValues(values)
+
+        // The android.graphics.Matrix looks like this:
+        // [x1 y1 w1]
+        // [x2 y2 w2]
+        // [x3 y3 w3]
+        // We want to contruct a matrix that looks like this:
+        // [x1 y1  0 w1]
+        // [x2 y2  0 w2]
+        // [ 0  0  1  0]
+        // [x3 y3  0 w3]
+        // Since it is stored in column-major order, it looks like this:
+        // [x1 x2 0 x3
+        //  y1 y2 0 y3
+        //   0  0 1  0
+        //  w1 w2 0 w3]
+        // clang-format off
+        // clang-format on
+        return floatArrayOf(
+            values[0 * 3 + 0], values[1 * 3 + 0], 0f, values[2 * 3 + 0],
+            values[0 * 3 + 1], values[1 * 3 + 1], 0f, values[2 * 3 + 1], 0f, 0f, 1f, 0f,
+            values[0 * 3 + 2], values[1 * 3 + 2], 0f, values[2 * 3 + 2]
+        )
     }
 }

@@ -1,18 +1,14 @@
 package com.amazonaws.services.chime.sdk.meetings.audiovideo.video
 
-import android.R.attr
-import android.R.id
 import android.graphics.Matrix
 import android.opengl.GLES20
 import android.os.Handler
-import android.util.Log
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.*
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 import java.nio.ByteBuffer
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.roundToInt
 
 
@@ -119,7 +115,7 @@ void main() {
     }
 
     private val i420TextureFrameBuffer =
-        GlTextureFrameBuffer(
+        GlFrameBuffer(
             GLES20.GL_RGBA
         )
     private val shaderCallbacks: ShaderCallbacks = ShaderCallbacks()
@@ -315,7 +311,7 @@ void main() {
      * transformationMatrix)
      */
     fun drawTexture(
-        drawer: RendererCommon.GlDrawer,
+        drawer: GlDrawer,
         renderMatrix: Matrix?,
         frameWidth: Int,
         frameHeight: Int,
@@ -328,7 +324,7 @@ void main() {
             Matrix(transformMatrix)
         finalMatrix.preConcat(renderMatrix)
         val finalGlMatrix: FloatArray =
-            RendererCommon.convertMatrixFromAndroidGraphicsMatrix(
+            GlUtil.convertMatrixFromAndroidGraphicsMatrix(
                 finalMatrix
             )
 

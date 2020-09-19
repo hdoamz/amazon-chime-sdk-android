@@ -8,18 +8,15 @@ package com.amazonaws.services.chime.sdk.meetings.audiovideo.video
 import android.content.Context
 import android.content.res.Resources.NotFoundException
 import android.graphics.Point
-import android.opengl.EGL14
 import android.opengl.EGLContext
 import android.util.AttributeSet
 import android.view.SurfaceHolder
 import android.view.SurfaceView
-import com.amazon.chime.webrtc.ThreadUtils
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.*
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.util.concurrent.CountDownLatch
 
 
 class DefaultVideoRenderView @JvmOverloads constructor(
@@ -35,23 +32,15 @@ class DefaultVideoRenderView @JvmOverloads constructor(
     private var surfaceWidth = 0
     private var surfaceHeight = 0
 
-    private val eglRenderer: EglRenderer = EglRenderer(getResourceName())
-    private val videoLayoutMeasure: RendererCommon.VideoLayoutMeasure =
-        RendererCommon.VideoLayoutMeasure()
+    private val eglRenderer: EglRenderer = EglRenderer()
+    private val videoLayoutMeasure: VideoLayoutMeasure =
+        VideoLayoutMeasure()
     private lateinit var logger: Logger
     private val TAG = "DefaultVideoRenderView"
 
     init {
         holder.addCallback(this)
-        videoLayoutMeasure.setScalingType(ScalingType.SCALE_ASPECT_FIT)
-    }
-
-    private fun getResourceName(): String? {
-        return try {
-            resources.getResourceEntryName(id)
-        } catch (e: NotFoundException) {
-            ""
-        }
+        videoLayoutMeasure.setScalingType(VideoLayoutMeasure.ScalingType.SCALE_ASPECT_FIT)
     }
 
     override fun init(logger: Logger, eglContext: EGLContext) {

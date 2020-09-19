@@ -22,7 +22,7 @@ open class GlGenericDrawer(
     private val vertexShader: String,
     private val genericFragmentSource: String,
     private val shaderCallbacks: ShaderCallbacks
-) : RendererCommon.GlDrawer {
+) : GlDrawer {
     /**
      * The different shader types representing different input sources. YUV here represents three
      * separate Y, U, V textures.
