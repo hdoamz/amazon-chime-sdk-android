@@ -1,10 +1,12 @@
-package com.amazonaws.services.chime.sdk.meetings.audiovideo.video
+package com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl
 
 import android.opengl.EGL14
 import android.opengl.EGLContext
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoRenderView
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 
-interface EglRenderView : VideoRenderView {
+interface EglRenderView :
+    VideoRenderView {
     /**
      * To initialize any platform specifc resource for the view For eg. EGL context if used.
      * Should be called when the view is created

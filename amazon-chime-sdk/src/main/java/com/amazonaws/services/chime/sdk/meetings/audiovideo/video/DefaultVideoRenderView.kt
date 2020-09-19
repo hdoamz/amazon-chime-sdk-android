@@ -6,7 +6,6 @@
 package com.amazonaws.services.chime.sdk.meetings.audiovideo.video
 
 import android.content.Context
-import android.content.res.Resources.NotFoundException
 import android.graphics.Point
 import android.opengl.EGLContext
 import android.util.AttributeSet
@@ -23,7 +22,8 @@ class DefaultVideoRenderView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyle: Int = 0
-) : SurfaceView(context, attrs, defStyle), SurfaceHolder.Callback, EglRenderView {
+) : SurfaceView(context, attrs, defStyle), SurfaceHolder.Callback,
+    EglRenderView {
     // Accessed only on the main thread.
     private var rotatedFrameWidth = 0
     private var rotatedFrameHeight = 0

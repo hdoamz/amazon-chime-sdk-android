@@ -6,6 +6,7 @@
 package com.amazonaws.services.chime.sdk.meetings.session
 
 import android.content.Context
+import android.opengl.EGL14
 import android.opengl.EGLContext
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.AudioVideoFacade
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.DefaultAudioVideoController
@@ -30,7 +31,7 @@ class DefaultMeetingSession(
     override val configuration: MeetingSessionConfiguration,
     override val logger: Logger,
     context: Context,
-    sharedEglContext: EGLContext? = null
+    sharedEglContext: EGLContext = EGL14.EGL_NO_CONTEXT
     ) : MeetingSession {
 
     override val audioVideo: AudioVideoFacade
@@ -106,7 +107,8 @@ class DefaultMeetingSession(
                 context,
                 audioClientController,
                 videoClientController,
-                logger
+                logger,
+                sharedEglContext
             )
 
         val realtimeController =

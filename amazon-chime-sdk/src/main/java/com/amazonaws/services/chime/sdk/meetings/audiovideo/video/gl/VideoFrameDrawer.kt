@@ -3,6 +3,7 @@ package com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl
 import android.graphics.Matrix
 import android.graphics.Point
 import android.opengl.GLES20
+import android.util.Log
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrame
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameBuffer
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameI420Buffer
@@ -181,7 +182,7 @@ class VideoFrameDrawer {
         drawFrame(frame, drawer, null /* additionalRenderMatrix */)
     }
 
-    fun drawFrame(
+    private fun drawFrame(
         frame: VideoFrame,
         drawer: GlDrawer,
         additionalRenderMatrix: Matrix?
@@ -218,7 +219,9 @@ class VideoFrameDrawer {
         if (additionalRenderMatrix != null) {
             renderMatrix.preConcat(additionalRenderMatrix)
         }
-        if (false) {
+        // TODO FIX ME
+        if (isTextureFrame) {
+            Log.d(TAG, "texture frame")
             lastI420Frame = null
             drawTexture(
                 drawer, frame.buffer as VideoFrameTextureBuffer, renderMatrix, renderWidth,

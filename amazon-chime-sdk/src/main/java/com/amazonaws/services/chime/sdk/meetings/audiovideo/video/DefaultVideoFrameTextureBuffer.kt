@@ -4,6 +4,7 @@ import android.graphics.Matrix
 import android.opengl.GLES20
 import android.os.Handler
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.*
+import com.amazonaws.services.chime.sdk.meetings.utils.RefCountDelegate
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.android.asCoroutineDispatcher
@@ -25,7 +26,10 @@ class DefaultVideoFrameTextureBuffer(
     private var unscaledWidth: Int = width
     private var unscaledHeight: Int = height
 
-    private val refCountDelegate = RefCountDelegate(releaseCallback)
+    private val refCountDelegate =
+        RefCountDelegate(
+            releaseCallback
+        )
 
     private val FRAGMENT_SHADER =
 // Difference in texture coordinate corresponding to one

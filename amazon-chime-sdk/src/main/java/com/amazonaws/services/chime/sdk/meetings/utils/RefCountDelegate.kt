@@ -1,4 +1,4 @@
-package com.amazonaws.services.chime.sdk.meetings.audiovideo.video
+package com.amazonaws.services.chime.sdk.meetings.utils
 
 import android.util.Log
 import java.util.concurrent.atomic.AtomicInteger

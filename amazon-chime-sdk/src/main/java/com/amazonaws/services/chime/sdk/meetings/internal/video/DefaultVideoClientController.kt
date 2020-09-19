@@ -133,7 +133,6 @@ class DefaultVideoClientController(
         }
 
         videoSourceAdapter = VideoSourceAdapter(source, logger)
-        // DELETE ME (Comment for testing previous camera)
         videoClient?.setExternalVideoSource(videoSourceAdapter)
     }
 
@@ -185,7 +184,6 @@ class DefaultVideoClientController(
         videoClient?.setReceiving(false)
         var flag = 0
         flag = flag or VIDEO_CLIENT_FLAG_ENABLE_TWO_SIMULCAST_STREAMS
-        // DELETE ME (Comment for testing previous camera)
         flag = flag or VIDEO_CLIENT_FLAG_DISABLE_CAPTURER
         flag = flag or VIDEO_CLIENT_FLAG_ENABLE_USE_HW_DECODE_AND_RENDER
         videoClient?.startServiceV2(
@@ -196,24 +194,10 @@ class DefaultVideoClientController(
             false,
             0,
             flag,
-            null
+            sharedEglContext
         )
 
-        // DELETE ME (Uncomment for testing previous camera)
-//         setFrontCameraAsCurrentDevice()
-        // DELETE ME (Comment for testing previous camera)
         videoClient?.setExternalVideoSource(videoSourceAdapter)
-    }
-
-    // DELETE ME (Uncomment for testing previous camera)
-    private fun setFrontCameraAsCurrentDevice() {
-        logger.info(TAG, "Setting front camera as current device")
-        val currentDevice: VideoDevice? = getActiveCamera()
-        if (currentDevice == null || !currentDevice.isFrontFacing) {
-            val frontDevice: VideoDevice? =
-                videoClient?.devices?.filter { it.isFrontFacing }?.elementAtOrNull(0)
-            frontDevice?.let { videoClient?.currentDevice = it }
-        }
     }
 
     override fun stopVideoClient() {

@@ -76,7 +76,7 @@ open class GlGenericDrawer(
     }
 
     // Visible for testing.
-    fun createShader(shaderType: ShaderType): GlShader {
+    private fun createShader(shaderType: ShaderType): GlShader {
         return GlShader(
             vertexShader,
             createFragmentShaderString(
