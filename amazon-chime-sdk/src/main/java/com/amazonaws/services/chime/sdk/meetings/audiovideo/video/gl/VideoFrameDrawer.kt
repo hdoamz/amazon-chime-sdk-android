@@ -219,7 +219,6 @@ class VideoFrameDrawer {
         if (additionalRenderMatrix != null) {
             renderMatrix.preConcat(additionalRenderMatrix)
         }
-        // TODO FIX ME
         if (isTextureFrame) {
             Log.d(TAG, "texture frame")
             lastI420Frame = null

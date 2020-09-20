@@ -28,9 +28,9 @@ class DefaultVideoTile(
 
     override fun bind(bindParams: Any?, videoRenderView: VideoRenderView?) {
         logger.info(TAG, "Binding the View to Tile")
-        if (videoRenderView is EglRenderView) {
-            videoRenderView.init(logger)
-        }
+//        if (videoRenderView is EglRenderView) {
+//            videoRenderView.init(logger)
+//        }
         this.videoRenderView = videoRenderView
     }
 
@@ -40,9 +40,9 @@ class DefaultVideoTile(
 
     override fun unbind() {
         logger.info(TAG, "Unbinding the View from Tile")
-        if (videoRenderView is EglRenderView) {
-            (videoRenderView as EglRenderView).dispose()
-        }
+//        if (videoRenderView is EglRenderView) {
+//            (videoRenderView as EglRenderView).dispose()
+//        }
         videoRenderView = null
     }
 

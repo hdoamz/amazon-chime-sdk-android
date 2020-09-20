@@ -5,8 +5,10 @@
 
 package com.amazonaws.services.chime.sdk.meetings.audiovideo.video
 
+import android.opengl.EGL14
 import android.opengl.EGLContext
 import com.amazon.chime.webrtc.EglBase
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.EglRenderView
 import com.amazonaws.services.chime.sdk.meetings.internal.utils.ObserverUtils
 import com.amazonaws.services.chime.sdk.meetings.internal.video.VideoClientController
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
@@ -15,7 +17,7 @@ class DefaultVideoTileController(
     private val logger: Logger,
     private val videoClientController: VideoClientController,
     private val videoTileFactory: VideoTileFactory,
-    sharedEglContext: EGLContext?
+    private val sharedEglContext: EGLContext = EGL14.EGL_NO_CONTEXT
 ) : VideoTileController {
     // A map of tile id to VideoTile to determine if VideoTileController is adding, removing, pausing, or rendering
     private val videoTileMap = mutableMapOf<Int, VideoTile>()
@@ -57,7 +59,6 @@ class DefaultVideoTileController(
         val videoStreamContentHeight = frame?.height ?: 0
 
         logger.info(TAG, "onReceiveFrame $videoStreamContentWidth x $videoStreamContentHeight")
-        frame?.retain()
         if (tile != null) {
             if (frame == null && pauseState == VideoPauseState.Unpaused) {
                 logger.info(
@@ -92,7 +93,10 @@ class DefaultVideoTileController(
             // Ignore any frames which come to an already paused tile
             if (tile.state.pauseState == VideoPauseState.Unpaused) {
                 frame?.run {
+                    frame.retain()
                     tile.renderFrame(frame)
+                    frame.release()
+
                 }
             }
         } else {
@@ -104,6 +108,8 @@ class DefaultVideoTileController(
                 onAddVideoTile(videoId, attendeeId, videoStreamContentWidth, videoStreamContentHeight)
             }
         }
+        frame?.release()
+
     }
 
     override fun addVideoTileObserver(observer: VideoTileObserver) {
@@ -169,6 +175,11 @@ class DefaultVideoTileController(
                 logger.info(TAG, "tileId = $tileId already had a different video view. Unbinding the old one and associating the new one")
                 removeVideoViewFromMap(tileId)
             }
+            if (videoView is EglRenderView) {
+                logger.info(TAG, "Initializing with EGL context $sharedEglContext with tileId = $tileId")
+                logger.info(TAG, "Initializing with EGL context ${sharedEglContext.nativeHandle} with tileId = $tileId")
+                videoView.init(logger, sharedEglContext)
+            }
             it.bind(rootEglBase, videoView)
             boundVideoViewMap[videoView] = tileId
         }
@@ -178,6 +189,9 @@ class DefaultVideoTileController(
         videoTileMap[tileId]?.let {
             val renderView = it.videoRenderView
             it.unbind()
+            if (renderView is EglRenderView) {
+                (renderView as EglRenderView).dispose()
+            }
             boundVideoViewMap.remove(renderView)
         }
     }
