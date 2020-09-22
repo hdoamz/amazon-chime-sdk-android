@@ -92,7 +92,7 @@ class DefaultVideoRenderView @JvmOverloads constructor(
         updateSurfaceSize()
     }
 
-    override fun onFrameCaptured(frame: VideoFrame) {
+    override fun onVideoFrameReceived(frame: VideoFrame) {
 
         if (rotatedFrameWidth != frame.getRotatedWidth()
             || rotatedFrameHeight != frame.getRotatedHeight()

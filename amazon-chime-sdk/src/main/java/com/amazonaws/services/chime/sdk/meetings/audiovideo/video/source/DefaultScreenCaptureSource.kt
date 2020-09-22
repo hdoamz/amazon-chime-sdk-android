@@ -69,9 +69,4 @@ class DefaultScreenCaptureSource(
             logger.error(TAG, "Failed to start screen capture activity, resultCode: $resultCode")
         }
     }
-
-    override fun process(frame: VideoFrame): VideoFrame {
-        logger.info(TAG, "process frame")
-        return super.process(frame)
-    }
 }

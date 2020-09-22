@@ -9,17 +9,6 @@ package com.amazonaws.services.chime.sdk.meetings.audiovideo.video
  * [VideoTileController] handles rendering/creating of new [VideoTile].
  */
 interface VideoTileController : VideoTileControllerFacade {
-
-    /**
-     * To initialize anything related to VideoTileController
-     */
-    fun initialize()
-
-    /**
-     * To destroy anything related to VideoTileController
-     */
-    fun destroy()
-
     /**
      * Called whenever there is a new Video frame received for any of the attendee in the meeting
      *

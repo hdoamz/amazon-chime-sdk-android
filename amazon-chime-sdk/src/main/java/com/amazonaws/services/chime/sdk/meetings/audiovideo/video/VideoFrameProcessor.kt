@@ -1,5 +1,8 @@
 package com.amazonaws.services.chime.sdk.meetings.audiovideo.video
 
-interface VideoFrameProcessor {
-    fun process(frame: VideoFrame): VideoFrame
-}
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source.VideoSource
+
+/**
+ * [VideoFrameProcessor] is interface for video processing steps
+ */
+interface VideoFrameProcessor : VideoSource, VideoSink

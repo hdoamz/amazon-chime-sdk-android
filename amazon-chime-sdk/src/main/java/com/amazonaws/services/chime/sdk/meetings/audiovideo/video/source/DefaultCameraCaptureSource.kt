@@ -157,7 +157,7 @@ class DefaultCameraCaptureSource(
             throw SecurityException("Missing necessary camera permissions")
         }
         super.start(format)
-        setFrameProcessor(this)
+        setFrameProcessor(::process)
 
         if (currentDeviceId == null && cameraManager.cameraIdList.isNotEmpty()) {
             currentDeviceId = cameraManager.cameraIdList[0]
@@ -190,7 +190,7 @@ class DefaultCameraCaptureSource(
         }
     }
 
-    override fun process(frame: VideoFrame): VideoFrame {
+   fun process(frame: VideoFrame): VideoFrame {
         return VideoFrame(
             frame.width, frame.height, frame.timestamp,
             createTextureBufferWithModifiedTransformMatrix(frame.buffer as DefaultVideoFrameTextureBuffer, !isCameraFrontFacing, -cameraOrientation),

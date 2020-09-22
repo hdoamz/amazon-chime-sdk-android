@@ -12,6 +12,9 @@ import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoPauseStat
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoTileController
 import com.amazonaws.services.chime.sdk.meetings.internal.metric.ClientMetricsCollector
 import com.amazonaws.services.chime.sdk.meetings.internal.utils.ObserverUtils
+import com.amazonaws.services.chime.sdk.meetings.internal.video.adapters.VideoFrameBufferAdapter
+import com.amazonaws.services.chime.sdk.meetings.internal.video.adapters.VideoFrameI420BufferAdapter
+import com.amazonaws.services.chime.sdk.meetings.internal.video.adapters.VideoFrameTextureBufferAdapter
 import com.amazonaws.services.chime.sdk.meetings.realtime.datamessage.DataMessage
 import com.amazonaws.services.chime.sdk.meetings.realtime.datamessage.DataMessageObserver
 import com.amazonaws.services.chime.sdk.meetings.session.MeetingSessionStatus

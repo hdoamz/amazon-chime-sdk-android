@@ -26,17 +26,6 @@ class DefaultVideoTileController(
     private val TAG = "DefaultVideoTileController"
 
     private var videoTileObservers = mutableSetOf<VideoTileObserver>()
-    private var rootEglBase: EglBase? = null
-
-    override fun initialize() {
-        logger.info(TAG, "initializing VideoTileController")
-        rootEglBase = EglBase.create()
-    }
-
-    override fun destroy() {
-        logger.info(TAG, "destroying VideoTileController")
-        rootEglBase?.release()
-    }
 
     override fun onReceiveFrame(
         frame: VideoFrame?,
@@ -180,7 +169,7 @@ class DefaultVideoTileController(
                 logger.info(TAG, "Initializing with EGL context ${sharedEglContext.nativeHandle} with tileId = $tileId")
                 videoView.init(logger, sharedEglContext)
             }
-            it.bind(rootEglBase, videoView)
+            it.bind(videoView)
             boundVideoViewMap[videoView] = tileId
         }
     }

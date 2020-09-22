@@ -1,4 +1,4 @@
-package com.amazonaws.services.chime.sdk.meetings.internal.video
+package com.amazonaws.services.chime.sdk.meetings.internal.video.adapters
 
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrame
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameI420Buffer
@@ -15,7 +15,7 @@ class VideoSourceAdapter(
     private var sinks = mutableSetOf<com.xodee.client.video.VideoSink>()
 
     init {
-        source.addSink(this)
+        source.addVideoSink(this)
     }
 
     override fun addSink(sink: com.xodee.client.video.VideoSink) {
@@ -35,7 +35,7 @@ class VideoSourceAdapter(
         }
     }
 
-    override fun onFrameCaptured(frame: VideoFrame) {
+    override fun onVideoFrameReceived(frame: VideoFrame) {
         val buffer = when (frame.buffer) {
             is VideoFrameTextureBuffer -> VideoFrameTextureBufferAdapter.SdkToVideoClient(frame.buffer as VideoFrameTextureBuffer)
             is VideoFrameI420Buffer -> VideoFrameI420BufferAdapter.SdkToVideoClient(frame.buffer as VideoFrameI420Buffer)

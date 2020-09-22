@@ -293,7 +293,7 @@ class DefaultDeviceController(
         currentCameraCaptureMediaDevice?.let { device ->
             cameraCaptureVideoSource?.setDeviceId(device.id)
         }
-        sink?.let { cameraCaptureVideoSource?.addSink(it) }
+        sink?.let { cameraCaptureVideoSource?.addVideoSink(it) }
 
         currentCameraCaptureFormat = format ?: currentCameraCaptureFormat
         cameraCaptureVideoSource?.start(format ?: defaultVideoCaptureFormat)
@@ -306,12 +306,12 @@ class DefaultDeviceController(
 
     override fun bindVideoCaptureOutput(videoSink: VideoSink) {
         sink = videoSink
-        cameraCaptureVideoSource?.addSink(videoSink)
+        cameraCaptureVideoSource?.addVideoSink(videoSink)
     }
 
     override fun unbindVideoCaptureOutput(videoSink: VideoSink) {
         sink = null
-        cameraCaptureVideoSource?.removeSink(videoSink)
+        cameraCaptureVideoSource?.removeVideoSink(videoSink)
     }
 
     override fun addDeviceChangeObserver(observer: DeviceChangeObserver) {

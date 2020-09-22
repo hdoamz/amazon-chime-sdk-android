@@ -1,4 +1,4 @@
-package com.amazonaws.services.chime.sdk.meetings.internal.video
+package com.amazonaws.services.chime.sdk.meetings.internal.video.adapters
 
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameBuffer
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameI420Buffer
@@ -17,7 +17,11 @@ class VideoFrameBufferAdapter {
         }
 
         override fun toI420(): com.xodee.client.video.VideoFrameI420Buffer? {
-            return buffer.toI420()?.let { VideoFrameI420BufferAdapter.SdkToVideoClient(it) }
+            return buffer.toI420()?.let {
+                VideoFrameI420BufferAdapter.SdkToVideoClient(
+                    it
+                )
+            }
         }
 
         override fun cropAndScale(
@@ -54,7 +58,11 @@ class VideoFrameBufferAdapter {
             }
 
         override fun toI420(): VideoFrameI420Buffer? {
-            return buffer.toI420()?.let { VideoFrameI420BufferAdapter.VideoClientToSdk(it) }
+            return buffer.toI420()?.let {
+                VideoFrameI420BufferAdapter.VideoClientToSdk(
+                    it
+                )
+            }
         }
 
         override fun cropAndScale(

@@ -12,6 +12,7 @@ import android.opengl.EGLContext
 import androidx.core.content.ContextCompat
 import com.amazonaws.services.chime.sdk.BuildConfig
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source.VideoSource
+import com.amazonaws.services.chime.sdk.meetings.internal.video.adapters.VideoSourceAdapter
 import com.amazonaws.services.chime.sdk.meetings.session.MeetingSessionConfiguration
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 import com.google.gson.Gson
@@ -132,7 +133,11 @@ class DefaultVideoClientController(
             return
         }
 
-        videoSourceAdapter = VideoSourceAdapter(source, logger)
+        videoSourceAdapter =
+            VideoSourceAdapter(
+                source,
+                logger
+            )
         videoClient?.setExternalVideoSource(videoSourceAdapter)
     }
 
@@ -176,7 +181,6 @@ class DefaultVideoClientController(
         VideoClient.initializeGlobals(context)
         VideoClientCapturer.getInstance(context)
         videoClient = videoClientFactory.getVideoClient(videoClientObserver)
-        videoClientObserver.notifyVideoTileObserver { observer -> observer.initialize() }
     }
 
     override fun startVideoClient() {
@@ -207,7 +211,6 @@ class DefaultVideoClientController(
 
     override fun destroyVideoClient() {
         logger.info(TAG, "Destroying video client")
-        videoClientObserver.notifyVideoTileObserver { observer -> observer.destroy() }
         videoClient?.destroy()
         videoClient = null
         VideoClient.finalizeGlobals()

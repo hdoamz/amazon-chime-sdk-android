@@ -23,10 +23,9 @@ interface VideoTile {
      * Binds the view to the tile. The view needs to be create by the application.
      * Once the binding is done, the view will start displaying the video frame automatically
      *
-     * @param bindParams: [Any] - Any parameter required to initialize render view
      * @param videoRenderView: [VideoRenderView] - The view created by application to render the video frame
      */
-    fun bind(bindParams: Any?, videoRenderView: VideoRenderView?)
+    fun bind(videoRenderView: VideoRenderView?)
 
     /**
      * Renders the frame on [videoRenderView]. The call will be silently ignored if the view has not been bind

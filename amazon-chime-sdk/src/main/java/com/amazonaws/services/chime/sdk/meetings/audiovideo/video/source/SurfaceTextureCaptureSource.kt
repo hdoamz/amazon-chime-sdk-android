@@ -23,7 +23,7 @@ import kotlinx.coroutines.runBlocking
 abstract class SurfaceTextureCaptureSource(
     private val logger: Logger,
     private val sharedEGLContext: EGLContext = EGL14.EGL_NO_CONTEXT
-) : VideoCaptureSource, VideoFrameProcessor {
+) : VideoCaptureSource {
     private val thread: HandlerThread = HandlerThread("SurfaceTextureVideoSource")
     protected val handler: Handler
 
@@ -33,7 +33,7 @@ abstract class SurfaceTextureCaptureSource(
     private lateinit var eglCore: EglCore
 
     private val timestampAligner = TimestampAligner()
-    private var videoFrameProcessor: VideoFrameProcessor? = null
+    private var videoFrameProcessor: ((VideoFrame)->VideoFrame)? = null
     protected var currentVideoCaptureFormat: VideoCaptureFormat? = null
 
     // Frame available listener was called when a texture was already in use
@@ -124,15 +124,15 @@ abstract class SurfaceTextureCaptureSource(
         }
     }
 
-    override fun addSink(sink: VideoSink) {
+    override fun addVideoSink(sink: VideoSink) {
         sinks.add(sink)
     }
 
-    override fun removeSink(sink: VideoSink) {
+    override fun removeVideoSink(sink: VideoSink) {
         sinks.remove(sink)
     }
 
-    fun setFrameProcessor(videoFrameProcessor: VideoFrameProcessor?) {
+    fun setFrameProcessor(videoFrameProcessor: ((VideoFrame)->VideoFrame)?) {
         this.videoFrameProcessor = videoFrameProcessor
     }
 
@@ -201,7 +201,7 @@ abstract class SurfaceTextureCaptureSource(
             )
 
         val newFrame = if (videoFrameProcessor != null) {
-            val processedFrame = videoFrameProcessor?.process(originalFrame)
+            val processedFrame = videoFrameProcessor?.invoke(originalFrame)
             originalFrame.release()
             processedFrame
         } else {
@@ -210,7 +210,7 @@ abstract class SurfaceTextureCaptureSource(
 
         newFrame?.let {frame ->
             sinks.forEach {
-                it.onFrameCaptured(frame)
+                it.onVideoFrameReceived(frame)
             }
             frame.release()
         }
@@ -225,9 +225,5 @@ abstract class SurfaceTextureCaptureSource(
         val matrix = Matrix()
         matrix.setValues(values)
         return matrix
-    }
-
-    override fun process(frame: VideoFrame): VideoFrame {
-        return frame
     }
 }

@@ -1,7 +1,6 @@
-package com.amazonaws.services.chime.sdk.meetings.internal.video
+package com.amazonaws.services.chime.sdk.meetings.internal.video.adapters
 
 import android.graphics.Matrix
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrame
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameBuffer
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameI420Buffer
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameTextureBuffer
@@ -48,7 +47,14 @@ class VideoFrameTextureBufferAdapter{
             scaleHeight: Int
         ): com.xodee.client.video.VideoFrameBuffer? {
             return SdkToVideoClient(
-                textureBuffer.cropAndScale(cropX, cropY, cropWidth, cropHeight, scaleWidth, scaleHeight) as VideoFrameTextureBuffer
+                textureBuffer.cropAndScale(
+                    cropX,
+                    cropY,
+                    cropWidth,
+                    cropHeight,
+                    scaleWidth,
+                    scaleHeight
+                ) as VideoFrameTextureBuffer
             )
         }
 
@@ -98,7 +104,14 @@ class VideoFrameTextureBufferAdapter{
             scaleHeight: Int
         ): VideoFrameBuffer? {
             return VideoClientToSdk(
-                textureBuffer.cropAndScale(cropX, cropY, cropWidth, cropHeight, scaleWidth, scaleHeight) as com.xodee.client.video.VideoFrameTextureBuffer
+                textureBuffer.cropAndScale(
+                    cropX,
+                    cropY,
+                    cropWidth,
+                    cropHeight,
+                    scaleWidth,
+                    scaleHeight
+                ) as com.xodee.client.video.VideoFrameTextureBuffer
             )
         }
 
