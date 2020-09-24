@@ -1,6 +1,5 @@
 package com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl
 
-import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.graphics.SurfaceTexture
 import android.opengl.EGL14
@@ -20,38 +19,11 @@ class EglRenderer(private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()
     private var logger: Logger? = null
     private val TAG = "EglRenderer"
 
-    interface FrameListener {
-        fun onFrame(frame: Bitmap?)
-    }
-
-    /** Callback for clients to be notified about errors encountered during rendering.  */
-    interface ErrorCallback {
-        /** Called if GLES20.GL_OUT_OF_MEMORY is encountered during rendering.  */
-        fun onGlOutOfMemory()
-    }
-
-    private class FrameListenerAndParams(
-        val listener: FrameListener,
-        val scale: Float,
-        val drawer: GlDrawer,
-        val applyFpsReduction: Boolean
-    )
-
     // |renderThreadHandler| is a handler for communicating with |renderThread|, and is synchronized
     // on |handlerLock|.
     private val handlerLock = Any()
 
     private var handler: Handler? = null
-
-    // Variables for fps reduction.
-    private val fpsReductionLock = Any()
-
-    // Time for when next frame should be rendered.
-    private var nextFrameTimeNs: Long = 0
-
-    // Minimum duration between frames when fps reduction is active, or -1 if video is completely
-    // paused.
-    private val minRenderPeriodNs: Long = 0
 
     // EGL and GL resources for drawing YUV/OES textures. After initialization, these are only
     // accessed from the render thread.
@@ -109,6 +81,7 @@ class EglRenderer(private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()
                     eglContext,
                     logger = logger
                 )
+            logger?.info(TAG, "Renderer initialized")
             surface?.let { createEglSurfaceInternal(it) }
         }
         this.logger?.info(TAG, "Renderer initialized")
@@ -142,12 +115,6 @@ class EglRenderer(private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()
                 eglCore?.createWindowSurface(surface)
                 eglCore?.makeCurrent()
 
-                /* clear the color buffer */
-                GLES20.glClearColor(1.0f, 1.0f, 0.0f, 1.0f);
-                GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-                eglCore?.swapBuffers()
-
-
                 // Necessary for YUV frames with odd width.
                 // GLES20.glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1)
                 logger?.info(TAG, "Created window surface for EGLRenderer")
@@ -169,6 +136,7 @@ class EglRenderer(private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()
     fun render(frame: VideoFrame) {
         synchronized(frameLock) {
             if (pendingFrame != null) {
+                logger?.info(TAG, "Releasing pending frame")
                 pendingFrame?.release()
             }
             pendingFrame = frame
@@ -221,28 +189,7 @@ class EglRenderer(private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()
             frame = pendingFrame as VideoFrame
             pendingFrame = null
         }
-        // Check if fps reduction is active.
-        var shouldRenderFrame: Boolean
-        synchronized(fpsReductionLock) {
-            if (minRenderPeriodNs == Long.MAX_VALUE) {
-                // Rendering is paused.
-                shouldRenderFrame = false
-            } else if (minRenderPeriodNs <= 0) {
-                // FPS reduction is disabled.
-                shouldRenderFrame = true
-            } else {
-                val currentTimeNs = System.nanoTime()
-                if (currentTimeNs < nextFrameTimeNs) {
-                    shouldRenderFrame = false
-                } else {
-                    nextFrameTimeNs += minRenderPeriodNs
-                    // The time for the next frame should always be in the future.
-                    nextFrameTimeNs = Math.max(nextFrameTimeNs, currentTimeNs)
-                    shouldRenderFrame = true
-                }
-            }
-        }
-        val startTimeNs = System.nanoTime()
+
         val frameAspectRatio =
             frame.getRotatedWidth() / frame.getRotatedHeight().toFloat()
         var drawnAspectRatio: Float
@@ -266,20 +213,18 @@ class EglRenderer(private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()
         drawMatrix.preScale(if (mirrorHorizontally) -1f else 1f, if (mirrorVertically) -1f else 1f)
         drawMatrix.preScale(scaleX, scaleY)
         drawMatrix.preTranslate(-0.5f, -0.5f)
-        if (shouldRenderFrame) {
-            GLES20.glClearColor(1f, 0f, 0f, 1f)
-            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-            eglCore?.let {
-                frameDrawer.drawFrame(
-                    frame, drawer, drawMatrix, 0 /* viewportX */, 0 /* viewportY */,
-                    it.surfaceWidth(), it.surfaceHeight()
-                )
-                val swapBuffersStartTimeNs = System.nanoTime()
-                if (usePresentationTimeStamp) {
+        GLES20.glClearColor(1f, 0f, 0f, 1f)
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+        eglCore?.let {
+            frameDrawer.drawFrame(
+                frame, drawer, drawMatrix, 0 /* viewportX */, 0 /* viewportY */,
+                it.surfaceWidth(), it.surfaceHeight()
+            )
+            val swapBuffersStartTimeNs = System.nanoTime()
+            if (usePresentationTimeStamp) {
 //                    it.swapBuffers(frame.getTimestampNs())
-                } else {
-                    it.swapBuffers()
-                }
+            } else {
+                it.swapBuffers()
             }
         }
         frame.release()

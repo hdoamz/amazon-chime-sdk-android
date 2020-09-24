@@ -3,16 +3,6 @@ package com.amazonaws.services.chime.sdk.meetings.audiovideo.video
 
 class VideoFrame(
     /**
-     * Width of the video frame
-     */
-    val width: Int,
-
-    /**
-     * Height of the video frame
-     */
-    val height: Int,
-
-    /**
      * Timestamp at which the video frame was captured
      */
     val timestamp: Long,
@@ -27,6 +17,26 @@ class VideoFrame(
      */
     val rotation: Int = 0
 ) {
+    /**
+     * Width of the video frame
+     *
+     * @return [Int] - Frame width in pixels
+     */
+    val width: Int
+        get() {
+            return buffer.width
+        }
+
+    /**
+     * Height of the video frame
+     *
+     * @return [Int] - Frame height in pixels
+     */
+    val height: Int
+        get() {
+            return buffer.height
+        }
+
     /**
      * Width of frame when rotation is removed
      *

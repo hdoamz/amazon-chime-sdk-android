@@ -89,9 +89,9 @@ class DefaultAudioVideoFacade(
 
     override fun startLocalVideo() {
         // If no external video source is set, start the device controller capture session
-        if (!isUsingExternalVideoSource) {
-            deviceController.startVideoCapture(null, null)
-        }
+//        if (!isUsingExternalVideoSource) {
+//            deviceController.startVideoCapture(null, null)
+//        }
         audioVideoController.startLocalVideo()
     }
 

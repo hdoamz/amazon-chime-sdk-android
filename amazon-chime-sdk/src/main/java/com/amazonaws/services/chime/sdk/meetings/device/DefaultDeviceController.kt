@@ -245,7 +245,7 @@ class DefaultDeviceController(
         val oppositeFacingDevices = listVideoDevices().filter { it.type == newType }
 
         currentCameraCaptureMediaDevice = oppositeFacingDevices.firstOrNull()?.also {
-            cameraCaptureVideoSource?.setDeviceId(it.id)
+            cameraCaptureVideoSource?.device = it
         }
     }
 
@@ -261,7 +261,9 @@ class DefaultDeviceController(
     override fun startVideoCapture(mediaDevice: MediaDevice?, format: VideoCaptureFormat?) {
         if (cameraCaptureVideoSource != null) {
             logger.info(TAG, "startVideoCapture called with active capture session, stopping")
-            cameraCaptureVideoSource?.stop()
+            cameraCaptureVideoSource?.format = format?: return
+            return
+//            cameraCaptureVideoSource?.stop()
         }
 
         logger.info(TAG, "Creating new camera capture video source")
@@ -291,7 +293,7 @@ class DefaultDeviceController(
             }
         }()
         currentCameraCaptureMediaDevice?.let { device ->
-            cameraCaptureVideoSource?.setDeviceId(device.id)
+            cameraCaptureVideoSource?.device = device
         }
         sink?.let { cameraCaptureVideoSource?.addVideoSink(it) }
 

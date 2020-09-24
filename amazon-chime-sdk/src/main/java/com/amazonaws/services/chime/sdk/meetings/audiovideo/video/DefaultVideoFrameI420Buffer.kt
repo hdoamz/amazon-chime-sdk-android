@@ -12,21 +12,6 @@ class DefaultVideoFrameI420Buffer(
     override val strideU: Int,
     override val strideV: Int
 ) : VideoFrameI420Buffer {
-    override fun toI420(): VideoFrameI420Buffer? {
-        return this
-    }
-
-    override fun cropAndScale(
-        cropX: Int,
-        cropY: Int,
-        cropWidth: Int,
-        cropHeight: Int,
-        scaleWidth: Int,
-        scaleHeight: Int
-    ): VideoFrameBuffer? {
-        return this
-    }
-
     override fun retain() {
         return
     }

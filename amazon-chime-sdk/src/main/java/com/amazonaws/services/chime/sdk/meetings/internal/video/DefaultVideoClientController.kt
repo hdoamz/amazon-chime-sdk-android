@@ -43,8 +43,8 @@ class DefaultVideoClientController(
     /**
      * This flag will enable higher resolution for videos
      */
-    private val VIDEO_CLIENT_FLAG_ENABLE_TWO_SIMULCAST_STREAMS = 4096
-    private val VIDEO_CLIENT_FLAG_DISABLE_CAPTURER = 262144
+    private val VIDEO_CLIENT_FLAG_ENABLE_TWO_SIMULCAST_STREAMS = 1 shl 12
+    private val VIDEO_CLIENT_FLAG_DISABLE_CAPTURER = 1 shl 19
 
     private val gson = Gson()
     private val permissions = arrayOf(
@@ -133,11 +133,7 @@ class DefaultVideoClientController(
             return
         }
 
-        videoSourceAdapter =
-            VideoSourceAdapter(
-                source,
-                logger
-            )
+        videoSourceAdapter = VideoSourceAdapter(source)
         videoClient?.setExternalVideoSource(videoSourceAdapter)
     }
 
@@ -201,7 +197,7 @@ class DefaultVideoClientController(
             sharedEglContext
         )
 
-        videoClient?.setExternalVideoSource(videoSourceAdapter)
+        videoSourceAdapter?.let {  videoClient?.setExternalVideoSource(it) }
     }
 
     override fun stopVideoClient() {

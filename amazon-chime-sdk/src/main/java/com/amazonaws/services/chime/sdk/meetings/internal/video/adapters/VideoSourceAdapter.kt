@@ -6,12 +6,8 @@ import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameText
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoSink
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source.ContentHint
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source.VideoSource
-import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 
-class VideoSourceAdapter(
-    private val source: VideoSource,
-    private val logger: Logger
-) : VideoSink, com.xodee.client.video.VideoSource {
+class VideoSourceAdapter(private val source: VideoSource) : VideoSink, com.xodee.client.video.VideoSource {
     private var sinks = mutableSetOf<com.xodee.client.video.VideoSink>()
 
     init {
@@ -37,9 +33,9 @@ class VideoSourceAdapter(
 
     override fun onVideoFrameReceived(frame: VideoFrame) {
         val buffer = when (frame.buffer) {
-            is VideoFrameTextureBuffer -> VideoFrameTextureBufferAdapter.SdkToVideoClient(frame.buffer as VideoFrameTextureBuffer)
-            is VideoFrameI420Buffer -> VideoFrameI420BufferAdapter.SdkToVideoClient(frame.buffer as VideoFrameI420Buffer)
-            else -> VideoFrameBufferAdapter.SdkToVideoClient(frame.buffer)
+            is VideoFrameTextureBuffer -> VideoFrameTextureBufferAdapter.SDKToMedia(frame.buffer as VideoFrameTextureBuffer)
+            is VideoFrameI420Buffer -> VideoFrameI420BufferAdapter.SDKToMedia(frame.buffer as VideoFrameI420Buffer)
+            else -> VideoFrameBufferAdapter.SDKToMedia(frame.buffer)
         }
 
         val videoClientFrame = com.xodee.client.video.VideoFrame(

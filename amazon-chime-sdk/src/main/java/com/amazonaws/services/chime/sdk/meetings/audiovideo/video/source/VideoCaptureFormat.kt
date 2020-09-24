@@ -15,12 +15,12 @@ data class VideoCaptureFormat(
     val height: Int,
 
     /**
-     * Max framerate of video capture.  This should also be the target framerate in most implemetations which take this class.
+     * Max framerate of video capture.  This should also be the target framerate in most implementations which take this class.
      */
-    val maxFps: Int
+    val maxFramerate: Int
 ) {
     override fun toString(): String {
-        return "$width x $height @ $maxFps FPS"
+        return "$width x $height @ $maxFramerate FPS"
 
     }
 

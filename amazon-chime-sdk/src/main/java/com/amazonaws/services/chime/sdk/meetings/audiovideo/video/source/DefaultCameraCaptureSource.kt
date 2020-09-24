@@ -7,13 +7,18 @@ import android.graphics.Matrix
 import android.hardware.camera2.*
 import android.opengl.EGL14
 import android.opengl.EGLContext
+import android.opengl.GLES20
+import android.os.Handler
+import android.os.HandlerThread
 import android.util.Range
 import android.view.Surface
 import android.view.WindowManager
 import androidx.core.app.ActivityCompat
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.DefaultVideoFrameTextureBuffer
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrame
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameTextureBuffer
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.*
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.EglCore
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.YuvConverter
+import com.amazonaws.services.chime.sdk.meetings.device.MediaDevice
+import com.amazonaws.services.chime.sdk.meetings.device.MediaDeviceType
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
@@ -22,8 +27,12 @@ import kotlinx.coroutines.runBlocking
 class DefaultCameraCaptureSource(
     private val context: Context,
     private val logger: Logger,
-    sharedEGLContext: EGLContext = EGL14.EGL_NO_CONTEXT
-) : SurfaceTextureCaptureSource(logger, sharedEGLContext), CameraCaptureSource {
+    private val sharedEGLContext: EGLContext = EGL14.EGL_NO_CONTEXT
+) : CameraCaptureSource, VideoSink {
+    private val thread: HandlerThread = HandlerThread("DefaultCameraCaptureSource")
+    private lateinit var eglCore: EglCore
+    val handler: Handler
+
     private val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
     private var cameraCaptureSession: CameraCaptureSession? = null
     private var cameraDevice: CameraDevice? = null
@@ -31,12 +40,36 @@ class DefaultCameraCaptureSource(
 
     private var cameraOrientation = 0
     private var isCameraFrontFacing = false
+    var currentVideoCaptureFormat: VideoCaptureFormat? = null
 
     private var currentDeviceId: String? = null
+
+    private var surfaceTextureSource: SurfaceTextureCaptureSource? = null
+    private var convertToCPU = false
+
+    private var observers = mutableSetOf<CaptureSourceObserver>()
+    private var sinks = mutableSetOf<VideoSink>()
 
     private val TAG = "DefaultCameraCaptureSource"
 
     override val contentHint = ContentHint.Motion
+
+    init {
+        if (true){//sharedEGLContext == EGL14.EGL_NO_CONTEXT) {
+            logger.info(TAG, "No shared EGL context provided, will convert all frames to CPU memory")
+            convertToCPU = true
+        }
+        thread.start()
+        handler = Handler(thread.looper)
+
+        runBlocking(handler.asCoroutineDispatcher().immediate) {
+            eglCore =
+                EglCore(
+                    EGL14.EGL_NO_CONTEXT,
+                    logger = logger
+                )
+        }
+    }
 
     // Implement and store callbacks as private constants since we can't inherit from all of them
 
@@ -71,7 +104,7 @@ class DefaultCameraCaptureSource(
                     currentVideoCaptureFormat?.let {
                         captureRequestBuilder.set(
                             CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
-                            Range(it.maxFps, it.maxFps)
+                            Range(it.maxFramerate, it.maxFramerate)
                         )
                     }
 
@@ -81,7 +114,7 @@ class DefaultCameraCaptureSource(
                     captureRequestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, false)
                     chooseStabilizationMode(captureRequestBuilder)
                     chooseFocusMode(captureRequestBuilder)
-                    captureRequestBuilder.addTarget(surface)
+                    surfaceTextureSource?.surface?.let { captureRequestBuilder.addTarget(it) }
                     session.setRepeatingRequest(
                         captureRequestBuilder.build(), cameraCaptureSessionCaptureCallback, handler
                     )
@@ -108,7 +141,7 @@ class DefaultCameraCaptureSource(
             cameraDevice = device
             try {
                 cameraDevice?.createCaptureSession(
-                    listOf(surface), cameraCaptureSessionStateCallback, handler
+                    listOf(surfaceTextureSource?.surface), cameraCaptureSessionStateCallback, handler
                 )
             } catch (e: CameraAccessException) {
                 logger.info(TAG, "Exception encountered creating capture session: ${e.reason}")
@@ -131,21 +164,40 @@ class DefaultCameraCaptureSource(
         }
     }
 
-    override fun setDeviceId(id: String) {
-        handler.post {
-            logger.info(TAG,"Setting capture device ID: $id")
-            if (id == currentDeviceId) {
-                logger.info(TAG, "Already using device ID: $currentDeviceId; ignoring")
-                return@post
+    override var device: MediaDevice
+        get() {
+            if (currentDeviceId == null && cameraManager.cameraIdList.isNotEmpty()) {
+                currentDeviceId = cameraManager.cameraIdList[0]
             }
+            return MediaDevice("blah", MediaDeviceType.VIDEO_BACK_CAMERA, currentDeviceId ?: "")
+        }
+        set(value) {
+            handler.post {
+                logger.info(TAG,"Setting capture device ID: $value.id")
+                if (value.id == currentDeviceId) {
+                    logger.info(TAG, "Already using device ID: $currentDeviceId; ignoring")
+                    return@post
+                }
 
-            currentDeviceId = id
+                currentDeviceId = value.id
 
-            currentVideoCaptureFormat?.let {
-                stop()
-                start(it)
+                currentVideoCaptureFormat?.let {
+                    stop()
+                    start(it)
+                }
             }
         }
+    override var format: VideoCaptureFormat
+        get() {
+            return currentVideoCaptureFormat ?: return VideoCaptureFormat(0,0,0)
+        }
+        set(value) {
+            stop()
+            start(value)
+        }
+
+    override fun switchCamera() {
+        TODO("Not yet implemented")
     }
 
     override fun start(format: VideoCaptureFormat) {
@@ -156,8 +208,10 @@ class DefaultCameraCaptureSource(
         ) {
             throw SecurityException("Missing necessary camera permissions")
         }
-        super.start(format)
-        setFrameProcessor(::process)
+
+        surfaceTextureSource = SurfaceTextureCaptureSource(logger, handler, eglCore.eglContext)
+        surfaceTextureSource!!.start(format)
+        surfaceTextureSource!!.addVideoSink(this)
 
         if (currentDeviceId == null && cameraManager.cameraIdList.isNotEmpty()) {
             currentDeviceId = cameraManager.cameraIdList[0]
@@ -176,9 +230,12 @@ class DefaultCameraCaptureSource(
 
     override fun stop() {
         logger.info(TAG, "Stopping camera capture source")
+        val self: VideoSink = this
         runBlocking(handler.asCoroutineDispatcher().immediate) {
             // Stop Surface capture source
-            super.stop()
+            surfaceTextureSource!!.removeVideoSink(self)
+            surfaceTextureSource!!.stop()
+            surfaceTextureSource!!.release()
 
             cameraCaptureSession?.close()
             cameraCaptureSession = null
@@ -190,12 +247,47 @@ class DefaultCameraCaptureSource(
         }
     }
 
-   fun process(frame: VideoFrame): VideoFrame {
-        return VideoFrame(
-            frame.width, frame.height, frame.timestamp,
-            createTextureBufferWithModifiedTransformMatrix(frame.buffer as DefaultVideoFrameTextureBuffer, !isCameraFrontFacing, -cameraOrientation),
+    override fun onVideoFrameReceived(frame: VideoFrame) {
+        var processedBuffer: VideoFrameBuffer =
+            createTextureBufferWithModifiedTransformMatrix(frame.buffer as DefaultVideoFrameTextureBuffer, !isCameraFrontFacing, -cameraOrientation)
+        if (convertToCPU) {
+            processedBuffer = YuvConverter().convert(processedBuffer as VideoFrameTextureBuffer)
+        }
+        val processedFrame =  VideoFrame(
+            frame.timestamp,
+            processedBuffer,
             getFrameOrientation()
         )
+        sinks.forEach{ it.onVideoFrameReceived(processedFrame)}
+        processedFrame.release()
+    }
+
+    override fun addVideoSink(sink: VideoSink) {
+        handler.post {
+            sinks.add(sink)
+        }
+    }
+
+    override fun removeVideoSink(sink: VideoSink) {
+        runBlocking(handler.asCoroutineDispatcher().immediate) {
+            sinks.remove(sink)
+        }
+    }
+
+    override fun addCaptureSourceObserver(observer: CaptureSourceObserver) {
+        observers.add(observer)
+    }
+
+    override fun removeCaptureSourceObserver(observer: CaptureSourceObserver) {
+        observers.remove(observer)
+    }
+
+    fun dispose() {
+        runBlocking(handler.asCoroutineDispatcher().immediate) {
+            logger.info(TAG, "Stopping handler looper")
+            handler.removeCallbacksAndMessages(null)
+            handler.looper.quit()
+        }
     }
 
     private fun chooseStabilizationMode(captureRequestBuilder: CaptureRequest.Builder) {

@@ -5,7 +5,7 @@ import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameI420
 import java.nio.ByteBuffer
 
 class VideoFrameI420BufferAdapter {
-    class SdkToVideoClient(
+    class SDKToMedia(
         val i420Buffer: VideoFrameI420Buffer
     ) : com.xodee.client.video.VideoFrameI420Buffer {
         override fun getWidth(): Int {
@@ -40,31 +40,6 @@ class VideoFrameI420BufferAdapter {
             return i420Buffer.strideV
         }
 
-
-        override fun toI420(): com.xodee.client.video.VideoFrameI420Buffer? {
-            return this
-        }
-
-        override fun cropAndScale(
-            cropX: Int,
-            cropY: Int,
-            cropWidth: Int,
-            cropHeight: Int,
-            scaleWidth: Int,
-            scaleHeight: Int
-        ): com.xodee.client.video.VideoFrameBuffer? {
-            return SdkToVideoClient(
-                i420Buffer.cropAndScale(
-                    cropX,
-                    cropY,
-                    cropWidth,
-                    cropHeight,
-                    scaleWidth,
-                    scaleHeight
-                ) as VideoFrameI420Buffer
-            )
-        }
-
         override fun retain() {
             i420Buffer.retain()
         }
@@ -74,7 +49,7 @@ class VideoFrameI420BufferAdapter {
         }
     }
 
-    class VideoClientToSdk(
+    class MediaToSDK(
         private val i420Buffer: com.xodee.client.video.VideoFrameI420Buffer
     ) : VideoFrameI420Buffer {
         override val width: Int
@@ -116,31 +91,6 @@ class VideoFrameI420BufferAdapter {
             get() {
                 return i420Buffer.strideV
             }
-
-
-        override fun toI420(): VideoFrameI420Buffer? {
-            return this
-        }
-
-        override fun cropAndScale(
-            cropX: Int,
-            cropY: Int,
-            cropWidth: Int,
-            cropHeight: Int,
-            scaleWidth: Int,
-            scaleHeight: Int
-        ): VideoFrameBuffer? {
-            return VideoClientToSdk(
-                i420Buffer.cropAndScale(
-                    cropX,
-                    cropY,
-                    cropWidth,
-                    cropHeight,
-                    scaleWidth,
-                    scaleHeight
-                ) as com.xodee.client.video.VideoFrameI420Buffer
-            )
-        }
 
         override fun retain() {
             i420Buffer.retain()

@@ -5,11 +5,9 @@ import android.graphics.Point
 import android.opengl.GLES20
 import android.util.Log
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrame
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameBuffer
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameI420Buffer
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameTextureBuffer
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.GlUtil.generateTexture
-import com.xodee.client.video.YuvHelper
+import com.xodee.client.video.YuvUtil
 import java.nio.ByteBuffer
 
 
@@ -65,7 +63,7 @@ class VideoFrameDrawer {
                 yuvTextures = IntArray(3)
                 for (i in 0..2) {
                     yuvTextures!![i] =
-                        generateTexture(
+                        EglCore.generateTexture(
                             GLES20.GL_TEXTURE_2D
                         )
                 }
@@ -80,7 +78,7 @@ class VideoFrameDrawer {
                     // Input is packed already.
                     planes[i]
                 } else {
-                    YuvHelper.copyPlane(
+                    YuvUtil.copyPlane(
                         planes[i],
                         strides[i],
                         copyBuffer,
@@ -226,12 +224,12 @@ class VideoFrameDrawer {
                 drawer, frame.buffer as VideoFrameTextureBuffer, renderMatrix, renderWidth,
                 renderHeight, viewportX, viewportY, viewportWidth, viewportHeight
             )
-        } else {
+        } else if (frame.buffer is VideoFrameI420Buffer) {
             // Only upload the I420 data to textures once per frame, if we are called multiple times
             // with the same frame.
             if (frame !== lastI420Frame) {
                 lastI420Frame = frame
-                val i420Buffer: VideoFrameI420Buffer? = frame.buffer.toI420()
+                val i420Buffer: VideoFrameI420Buffer? = frame.buffer
                 if (i420Buffer != null) {
                     yuvUploader.uploadFromBuffer(i420Buffer)
                     i420Buffer.release()
@@ -239,19 +237,12 @@ class VideoFrameDrawer {
             }
             drawer.drawYuv(
                 yuvUploader.yuvTextures,
-                GlUtil.convertMatrixFromAndroidGraphicsMatrix(
+                EglCore.convertMatrixFromAndroidGraphicsMatrix(
                     renderMatrix
                 ), renderWidth,
                 renderHeight, viewportX, viewportY, viewportWidth, viewportHeight
             )
         }
-    }
-
-    fun prepareBufferForViewportSize(
-        buffer: VideoFrameBuffer, width: Int, height: Int
-    ): VideoFrameBuffer {
-        buffer.retain()
-        return buffer
     }
 
     fun release() {
@@ -283,7 +274,7 @@ class VideoFrameDrawer {
                 Matrix(buffer.transformMatrix)
             finalMatrix.preConcat(renderMatrix)
             val finalGlMatrix =
-                GlUtil.convertMatrixFromAndroidGraphicsMatrix(
+                EglCore.convertMatrixFromAndroidGraphicsMatrix(
                     finalMatrix
                 )
             when (buffer.type) {

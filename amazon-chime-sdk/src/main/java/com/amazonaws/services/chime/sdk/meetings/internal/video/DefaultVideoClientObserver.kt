@@ -144,18 +144,18 @@ class DefaultVideoClientObserver(
 
         val sdkFrame = (frame as? com.xodee.client.video.VideoFrame)?.let {
             val bufferAdapter: VideoFrameBuffer = when (frame.buffer) {
-                is com.xodee.client.video.VideoFrameTextureBuffer -> VideoFrameTextureBufferAdapter.VideoClientToSdk(
+                is com.xodee.client.video.VideoFrameTextureBuffer -> VideoFrameTextureBufferAdapter.MediaToSDK(
                     frame.buffer as com.xodee.client.video.VideoFrameTextureBuffer
                 )
-                is com.xodee.client.video.VideoFrameI420Buffer -> VideoFrameI420BufferAdapter.VideoClientToSdk(
+                is com.xodee.client.video.VideoFrameI420Buffer -> VideoFrameI420BufferAdapter.MediaToSDK(
                     frame.buffer as com.xodee.client.video.VideoFrameI420Buffer
                 )
-                is com.xodee.client.video.VideoFrameBuffer -> VideoFrameBufferAdapter.VideoClientToSdk(
+                is com.xodee.client.video.VideoFrameBuffer -> VideoFrameBufferAdapter.MediaToSDK(
                     frame.buffer as com.xodee.client.video.VideoFrameBuffer
                 )
                 else -> throw InvalidParameterException("Video frame must have non null buffer")
             }
-            VideoFrame(frame.width, frame.height, frame.timestamp, bufferAdapter, frame.rotation.toInt())
+            VideoFrame(frame.timestamp, bufferAdapter, frame.rotation.toInt())
         }
 
         notifyVideoTileObserver { observer ->
@@ -166,6 +166,8 @@ class DefaultVideoClientObserver(
                 pauseState
             )
         }
+
+        //sdkFrame?.release()
     }
 
     override fun onMetrics(metrics: IntArray?, values: DoubleArray?) {

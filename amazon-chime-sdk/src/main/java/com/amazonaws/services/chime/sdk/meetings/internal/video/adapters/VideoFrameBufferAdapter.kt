@@ -4,7 +4,7 @@ import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameBuff
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameI420Buffer
 
 class VideoFrameBufferAdapter {
-    class SdkToVideoClient(
+    class SDKToMedia(
         val buffer: VideoFrameBuffer
     ) : com.xodee.client.video.VideoFrameBuffer {
 
@@ -16,24 +16,6 @@ class VideoFrameBufferAdapter {
             return buffer.height
         }
 
-        override fun toI420(): com.xodee.client.video.VideoFrameI420Buffer? {
-            return buffer.toI420()?.let {
-                VideoFrameI420BufferAdapter.SdkToVideoClient(
-                    it
-                )
-            }
-        }
-
-        override fun cropAndScale(
-            cropX: Int, cropY: Int, cropWidth: Int, cropHeight: Int, scaleWidth: Int, scaleHeight: Int
-        ) : com.xodee.client.video.VideoFrameBuffer? {
-            return buffer.cropAndScale(cropX, cropY, cropWidth, cropHeight, scaleWidth, scaleHeight)?.let {
-                SdkToVideoClient(
-                    it
-                )
-            }
-        }
-
         override fun release() {
             buffer.release()
         }
@@ -43,7 +25,7 @@ class VideoFrameBufferAdapter {
         }
     }
 
-    class VideoClientToSdk(
+    class MediaToSDK(
         val buffer: com.xodee.client.video.VideoFrameBuffer
     ) : VideoFrameBuffer {
 
@@ -56,24 +38,6 @@ class VideoFrameBufferAdapter {
             get() {
                 return buffer.height
             }
-
-        override fun toI420(): VideoFrameI420Buffer? {
-            return buffer.toI420()?.let {
-                VideoFrameI420BufferAdapter.VideoClientToSdk(
-                    it
-                )
-            }
-        }
-
-        override fun cropAndScale(
-            cropX: Int, cropY: Int, cropWidth: Int, cropHeight: Int, scaleWidth: Int, scaleHeight: Int
-        ) : VideoFrameBuffer? {
-            return buffer.cropAndScale(cropX, cropY, cropWidth, cropHeight, scaleWidth, scaleHeight)?.let {
-                VideoClientToSdk(
-                    it
-                )
-            }
-        }
 
         override fun release() {
             buffer.release()

@@ -37,7 +37,7 @@ class GlFrameBufferHelper(pixelFormat: Int) {
         // Lazy allocation the first time setSize() is called.
         if (textureId == 0) {
             textureId =
-                GlUtil.generateTexture(
+                EglCore.generateTexture(
                     GLES20.GL_TEXTURE_2D
                 )
         }
@@ -55,7 +55,7 @@ class GlFrameBufferHelper(pixelFormat: Int) {
             GLES20.GL_UNSIGNED_BYTE, null
         )
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
-        GlUtil.checkGlError("GlTextureFrameBuffer setSize")
+        EglCore.checkGlError("GlTextureFrameBuffer setSize")
 
         // Attach the texture to the framebuffer as color attachment.
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, frameBufferId)

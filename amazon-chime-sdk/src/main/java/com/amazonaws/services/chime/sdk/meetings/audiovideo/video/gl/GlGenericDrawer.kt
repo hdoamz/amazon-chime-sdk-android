@@ -100,12 +100,12 @@ open class GlGenericDrawer(
         // Bind the texture.
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesTextureId)
-        GlUtil.checkGlError("glBindTexture")
+        EglCore.checkGlError("glBindTexture")
 
         // Draw the texture.
         GLES20.glViewport(viewportX, viewportY, viewportWidth, viewportHeight)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
-        GlUtil.checkGlError("glDrawArrays")
+        EglCore.checkGlError("glDrawArrays")
 
         // Unbind the texture as a precaution.
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, 0)
@@ -249,7 +249,7 @@ open class GlGenericDrawer(
         // Vertex coordinates in Normalized Device Coordinates, i.e. (-1, -1) is bottom-left and (1, 1)
         // is top-right.
         private val FULL_RECTANGLE_BUFFER: FloatBuffer =
-            GlUtil.createFloatBuffer(
+            EglCore.createFloatBuffer(
                 floatArrayOf(
                     -1.0f, -1.0f,  // Bottom left.
                     1.0f, -1.0f,  // Bottom right.
@@ -260,7 +260,7 @@ open class GlGenericDrawer(
 
         // Texture coordinates - (0, 0) is bottom-left and (1, 1) is top-right.
         private val FULL_RECTANGLE_TEXTURE_BUFFER: FloatBuffer =
-            GlUtil.createFloatBuffer(
+            EglCore.createFloatBuffer(
                 floatArrayOf(
                     0.0f, 0.0f,  // Bottom left.
                     1.0f, 0.0f,  // Bottom right.

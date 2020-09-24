@@ -10,18 +10,15 @@ import android.app.AlertDialog
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.util.DisplayMetrics
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -36,10 +33,6 @@ import com.amazonaws.services.chime.sdk.meetings.audiovideo.audio.activespeakerp
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.metric.MetricsObserver
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.metric.ObservableMetric
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.*
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source.DefaultFileCaptureSource
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source.DefaultScreenCaptureSource
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source.ScreenCaptureSource
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source.VideoCaptureFormat
 import com.amazonaws.services.chime.sdk.meetings.device.DeviceChangeObserver
 import com.amazonaws.services.chime.sdk.meetings.device.MediaDevice
 import com.amazonaws.services.chime.sdk.meetings.device.MediaDeviceType
@@ -97,9 +90,6 @@ class MeetingFragment : Fragment(),
     // Append to attendee name if it's for content share
     private val CONTENT_NAME_SUFFIX = "<<Content>>"
 
-    private val WEBRTC_PERM = arrayOf(
-        Manifest.permission.CAMERA
-    )
     private val DATA_MESSAGE_TOPIC = "chat"
     private val DATA_MESSAGE_LIFETIME_MS = 300000
 

@@ -1,13 +1,14 @@
 package com.amazonaws.services.chime.sdk.meetings.internal.video.adapters
 
 import android.graphics.Matrix
+import android.os.Handler
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameBuffer
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameI420Buffer
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameTextureBuffer
 import java.security.InvalidParameterException
 
 class VideoFrameTextureBufferAdapter{
-    class SdkToVideoClient(
+    class SDKToMedia(
         private val textureBuffer: VideoFrameTextureBuffer
     ) : com.xodee.client.video.VideoFrameTextureBuffer {
 
@@ -19,16 +20,8 @@ class VideoFrameTextureBufferAdapter{
             return textureBuffer.height
         }
 
-        override fun getTransformMatrix(): Matrix? {
-            return textureBuffer.transformMatrix
-        }
-
-        override fun getTextureId(): Int {
-            return textureBuffer.textureId;
-        }
-
-        override fun toI420(): com.xodee.client.video.VideoFrameI420Buffer? {
-            return textureBuffer.toI420()?.let { VideoFrameI420BufferAdapter.SdkToVideoClient(it) }
+        override fun getHandler(): Handler {
+            return textureBuffer.handler
         }
 
         override fun getType(): com.xodee.client.video.VideoFrameTextureBuffer.Type {
@@ -38,24 +31,12 @@ class VideoFrameTextureBufferAdapter{
             }
         }
 
-        override fun cropAndScale(
-            cropX: Int,
-            cropY: Int,
-            cropWidth: Int,
-            cropHeight: Int,
-            scaleWidth: Int,
-            scaleHeight: Int
-        ): com.xodee.client.video.VideoFrameBuffer? {
-            return SdkToVideoClient(
-                textureBuffer.cropAndScale(
-                    cropX,
-                    cropY,
-                    cropWidth,
-                    cropHeight,
-                    scaleWidth,
-                    scaleHeight
-                ) as VideoFrameTextureBuffer
-            )
+        override fun getTransformMatrix(): Matrix? {
+            return textureBuffer.transformMatrix
+        }
+
+        override fun getTextureId(): Int {
+            return textureBuffer.textureId;
         }
 
         override fun release() {
@@ -67,7 +48,7 @@ class VideoFrameTextureBufferAdapter{
         }
     }
 
-    class VideoClientToSdk(
+    class MediaToSDK(
         private val textureBuffer: com.xodee.client.video.VideoFrameTextureBuffer
     ) : VideoFrameTextureBuffer {
         override val width: Int
@@ -90,30 +71,8 @@ class VideoFrameTextureBufferAdapter{
                     else -> throw InvalidParameterException("Cannot have null type")
                 }
             }
-
-        override fun toI420(): VideoFrameI420Buffer? {
-            return textureBuffer.toI420()?.let { VideoFrameI420BufferAdapter.VideoClientToSdk(it) }
-        }
-
-        override fun cropAndScale(
-            cropX: Int,
-            cropY: Int,
-            cropWidth: Int,
-            cropHeight: Int,
-            scaleWidth: Int,
-            scaleHeight: Int
-        ): VideoFrameBuffer? {
-            return VideoClientToSdk(
-                textureBuffer.cropAndScale(
-                    cropX,
-                    cropY,
-                    cropWidth,
-                    cropHeight,
-                    scaleWidth,
-                    scaleHeight
-                ) as com.xodee.client.video.VideoFrameTextureBuffer
-            )
-        }
+        override val handler: Handler
+            get() = textureBuffer.handler
 
         override fun release() {
             textureBuffer.release()
