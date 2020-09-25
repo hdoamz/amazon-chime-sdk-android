@@ -7,6 +7,8 @@ import com.amazon.chime.webrtc.GlUtil
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.DefaultVideoFrameI420Buffer
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameI420Buffer
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameTextureBuffer
+import com.xodee.client.video.JniUtil
+import kotlinx.coroutines.Runnable
 import java.nio.ByteBuffer
 
 /**
@@ -180,7 +182,8 @@ class YuvConverter @JvmOverloads constructor(private val videoFrameDrawer: Video
             dataV,
             stride,
             stride,
-            stride
+            stride,
+            Runnable { JniUtil.nativeFreeByteBuffer(i420ByteBuffer) }
         );
     }
 

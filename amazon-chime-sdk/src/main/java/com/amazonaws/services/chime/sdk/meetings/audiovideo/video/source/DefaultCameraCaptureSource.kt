@@ -248,18 +248,25 @@ class DefaultCameraCaptureSource(
     }
 
     override fun onVideoFrameReceived(frame: VideoFrame) {
-        var processedBuffer: VideoFrameBuffer =
+        var processedBuffer: DefaultVideoFrameTextureBuffer =
             createTextureBufferWithModifiedTransformMatrix(frame.buffer as DefaultVideoFrameTextureBuffer, !isCameraFrontFacing, -cameraOrientation)
-        if (convertToCPU) {
-            processedBuffer = YuvConverter().convert(processedBuffer as VideoFrameTextureBuffer)
+//        if (convertToCPU) {
+//            processedBuffer = YuvConverter().convert(processedBuffer as VideoFrameTextureBuffer)
+//        }
+        val processedFrame = processedBuffer.toI420()?.let {
+            VideoFrame(
+                frame.timestamp,
+                it,
+                getFrameOrientation()
+            )
         }
-        val processedFrame =  VideoFrame(
-            frame.timestamp,
-            processedBuffer,
-            getFrameOrientation()
-        )
-        sinks.forEach{ it.onVideoFrameReceived(processedFrame)}
-        processedFrame.release()
+        processedBuffer?.release()
+        sinks.forEach{
+            if (processedFrame != null) {
+                it.onVideoFrameReceived(processedFrame)
+            }
+        }
+        processedFrame?.release()
     }
 
     override fun addVideoSink(sink: VideoSink) {
@@ -356,7 +363,7 @@ class DefaultCameraCaptureSource(
 
     private fun createTextureBufferWithModifiedTransformMatrix(
         buffer: DefaultVideoFrameTextureBuffer, mirror: Boolean, rotation: Int
-    ): VideoFrameTextureBuffer {
+    ): DefaultVideoFrameTextureBuffer {
         val transformMatrix = Matrix()
         // Perform mirror and rotation around (0.5, 0.5) since that is the center of the texture.
         transformMatrix.preTranslate( /* dx= */0.5f,  /* dy= */0.5f)

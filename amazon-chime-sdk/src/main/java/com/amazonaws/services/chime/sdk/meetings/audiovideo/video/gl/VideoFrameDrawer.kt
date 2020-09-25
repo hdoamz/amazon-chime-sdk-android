@@ -56,6 +56,7 @@ class VideoFrameDrawer {
             if (copyCapacityNeeded > 0
                 && (copyBuffer == null || copyBuffer!!.capacity() < copyCapacityNeeded)
             ) {
+                Log.e("test", "allocating")
                 copyBuffer = ByteBuffer.allocateDirect(copyCapacityNeeded)
             }
             // Make sure YUV textures are allocated.
@@ -232,7 +233,6 @@ class VideoFrameDrawer {
                 val i420Buffer: VideoFrameI420Buffer? = frame.buffer
                 if (i420Buffer != null) {
                     yuvUploader.uploadFromBuffer(i420Buffer)
-                    i420Buffer.release()
                 }
             }
             drawer.drawYuv(

@@ -1,5 +1,6 @@
 package com.amazonaws.services.chime.sdk.meetings.audiovideo.video
 
+import com.amazonaws.services.chime.sdk.meetings.utils.RefCountDelegate
 import java.nio.ByteBuffer
 
 class DefaultVideoFrameI420Buffer(
@@ -10,13 +11,20 @@ class DefaultVideoFrameI420Buffer(
     override val dataV: ByteBuffer?,
     override val strideY: Int,
     override val strideU: Int,
-    override val strideV: Int
-) : VideoFrameI420Buffer {
+    override val strideV: Int,
+    releaseCallback: Runnable
+    ) : VideoFrameI420Buffer {
+
+    private val refCountDelegate =
+        RefCountDelegate(
+            releaseCallback
+        )
+
     override fun retain() {
-        return
+        refCountDelegate.retain()
     }
 
     override fun release() {
-        return
+        refCountDelegate.release()
     }
 }
