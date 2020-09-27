@@ -101,8 +101,13 @@ class DefaultGlVideoFrameConverter : GlVideoFrameConverter {
      * Class for converting OES textures to a YUV ByteBuffer. It can be constructed on any thread, but
      * should only be operated from a single thread with an active EGL context.
      */
-    class YuvConverter @JvmOverloads constructor() {
-        private var currentShaderType: GlGenericDrawer.ShaderType? = null
+    class YuvConverter() {
+
+        enum class ShaderType {
+            OES, RGB
+        }
+
+        private var currentShaderType: ShaderType? = null
 
         private var currentShader: GlShader? =
             null
@@ -110,103 +115,23 @@ class DefaultGlVideoFrameConverter : GlVideoFrameConverter {
         private var inTcLocation = 0
         private var texMatrixLocation = 0
 
+        private var xUnitLoc = 0
+        private var coeffsLoc = 0
+        private lateinit var coeffs: FloatArray
+        private var stepSize = 0f
 
-        private val FRAGMENT_SHADER =
-// Difference in texture coordinate corresponding to one
-// sub-pixel in the x direction.
-            """
-uniform vec2 xUnit;
-uniform vec4 coeffs;
+        private val yCoeffs =
+            floatArrayOf(0.256788f, 0.504129f, 0.0979059f, 0.0627451f)
+        private val uCoeffs =
+            floatArrayOf(-0.148223f, -0.290993f, 0.439216f, 0.501961f)
+        private val vCoeffs =
+            floatArrayOf(0.439216f, -0.367788f, -0.0714274f, 0.501961f)
 
-void main() {
-  gl_FragColor.r = coeffs.a + dot(coeffs.rgb,
-      sample(tc - 1.5 * xUnit).rgb);
-  gl_FragColor.g = coeffs.a + dot(coeffs.rgb,
-      sample(tc - 0.5 * xUnit).rgb);
-  gl_FragColor.b = coeffs.a + dot(coeffs.rgb,
-      sample(tc + 0.5 * xUnit).rgb);
-  gl_FragColor.a = coeffs.a + dot(coeffs.rgb,
-      sample(tc + 1.5 * xUnit).rgb);
-}
-"""
 
-        private class ShaderCallbacks :
-            GlGenericDrawer.ShaderCallbacks {
-            private var xUnitLoc = 0
-            private var coeffsLoc = 0
-            private lateinit var coeffs: FloatArray
-            private var stepSize = 0f
-            fun setPlaneY() {
-                coeffs = yCoeffs
-                stepSize = 1.0f
-            }
-
-            fun setPlaneU() {
-                coeffs = uCoeffs
-                stepSize = 2.0f
-            }
-
-            fun setPlaneV() {
-                coeffs = vCoeffs
-                stepSize = 2.0f
-            }
-
-            override fun onNewShader(shader: GlShader?) {
-                shader?.let {
-                    xUnitLoc = it.getUniformLocation("xUnit")
-                    coeffsLoc = it.getUniformLocation("coeffs")
-                }
-            }
-
-            override fun onPrepareShader(
-                shader: GlShader?,
-                texMatrix: FloatArray?,
-                frameWidth: Int,
-                frameHeight: Int,
-                viewportWidth: Int,
-                viewportHeight: Int
-            ) {
-                GLES20.glUniform4fv(coeffsLoc,  /* count= */1, coeffs,  /* offset= */0)
-                // Matrix * (1;0;0;0) / (width / stepSize). Note that OpenGL uses column major order.
-                GLES20.glUniform2f(
-                    xUnitLoc,
-                    stepSize * texMatrix!![0] / frameWidth,
-                    stepSize * texMatrix[1] / frameWidth
-                )
-                DefaultEglCore.checkGlError("prepare")
-            }
-
-            companion object {
-                // Y'UV444 to RGB888, see https://en.wikipedia.org/wiki/YUV#Y%E2%80%B2UV444_to_RGB888_conversion
-                // We use the ITU-R BT.601 coefficients for Y, U and V.
-                // The values in Wikipedia are inaccurate, the accurate values derived from the spec are:
-                // Y = 0.299 * R + 0.587 * G + 0.114 * B
-                // U = -0.168736 * R - 0.331264 * G + 0.5 * B + 0.5
-                // V = 0.5 * R - 0.418688 * G - 0.0813124 * B + 0.5
-                // To map the Y-values to range [16-235] and U- and V-values to range [16-240], the matrix has
-                // been multiplied with matrix:
-                // {{219 / 255, 0, 0, 16 / 255},
-                // {0, 224 / 255, 0, 16 / 255},
-                // {0, 0, 224 / 255, 16 / 255},
-                // {0, 0, 0, 1}}
-                private val yCoeffs =
-                    floatArrayOf(0.256788f, 0.504129f, 0.0979059f, 0.0627451f)
-                private val uCoeffs =
-                    floatArrayOf(-0.148223f, -0.290993f, 0.439216f, 0.501961f)
-                private val vCoeffs =
-                    floatArrayOf(0.439216f, -0.367788f, -0.0714274f, 0.501961f)
-            }
-        }
 
         private val i420TextureFrameBuffer =
             GlFrameBufferHelper(
                 GLES20.GL_RGBA
-            )
-        private val shaderCallbacks: ShaderCallbacks = ShaderCallbacks()
-        private val drawer: GlGenericDrawer =
-            GlGenericDrawer(
-                FRAGMENT_SHADER,
-                shaderCallbacks
             )
 
         /** Converts the texture buffer to I420.  */
@@ -265,25 +190,27 @@ void main() {
             DefaultEglCore.checkGlError("glBindFramebuffer")
 
             // Draw Y.
-            shaderCallbacks.setPlaneY()
+            coeffs = yCoeffs
+            stepSize = 1.0f
             drawTexture(inputTextureBuffer,
-                drawer, renderMatrix, frameWidth, frameHeight,  /* viewportX= */
+                renderMatrix, frameWidth, frameHeight,  /* viewportX= */
                 0,  /* viewportY= */0, viewportWidth,  /* viewportHeight= */
                 frameHeight
             )
 
             // Draw U.
-            shaderCallbacks.setPlaneU()
+            coeffs = uCoeffs
+            stepSize = 2.0f
             drawTexture(inputTextureBuffer,
-                drawer, renderMatrix, frameWidth, frameHeight,  /* viewportX= */
+                renderMatrix, frameWidth, frameHeight,  /* viewportX= */
                 0,  /* viewportY= */frameHeight, viewportWidth / 2,  /* viewportHeight= */
                 uvHeight
             )
 
             // Draw V.
-            shaderCallbacks.setPlaneV()
+            coeffs = vCoeffs
+            stepSize = 2.0f
             drawTexture(inputTextureBuffer,
-                drawer,
                 renderMatrix,
                 frameWidth,
                 frameHeight,  /* viewportX= */
@@ -348,7 +275,7 @@ void main() {
             viewportX: Int, viewportY: Int, viewportWidth: Int, viewportHeight: Int
         ) {
             prepareShader(
-                GlGenericDrawer.ShaderType.OES, texMatrix, frameWidth, frameHeight, viewportWidth, viewportHeight
+                ShaderType.OES, texMatrix, frameWidth, frameHeight, viewportWidth, viewportHeight
             )
             // Bind the texture.
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
@@ -373,7 +300,7 @@ void main() {
             viewportX: Int, viewportY: Int, viewportWidth: Int, viewportHeight: Int
         ) {
             prepareShader(
-                GlGenericDrawer.ShaderType.RGB, texMatrix, frameWidth, frameHeight, viewportWidth, viewportHeight
+                ShaderType.RGB, texMatrix, frameWidth, frameHeight, viewportWidth, viewportHeight
             )
             // Bind the texture.
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
@@ -386,7 +313,7 @@ void main() {
         }
 
         private fun prepareShader(
-            shaderType: GlGenericDrawer.ShaderType, texMatrix: FloatArray?, frameWidth: Int,
+            shaderType: ShaderType, texMatrix: FloatArray?, frameWidth: Int,
             frameHeight: Int, viewportWidth: Int, viewportHeight: Int
         ) {
             val shader: GlShader?
@@ -408,13 +335,18 @@ void main() {
 
                 GLES20.glUniform1i(shader.getUniformLocation("tex"), 0)
 
-                shaderCallbacks.onNewShader(shader)
                 texMatrixLocation =
                     shader.getUniformLocation(TEXTURE_MATRIX_NAME)
                 inPosLocation =
                     shader.getAttribLocation(INPUT_VERTEX_COORDINATE_NAME)
                 inTcLocation =
                     shader.getAttribLocation(INPUT_TEXTURE_COORDINATE_NAME)
+
+                currentShader?.let {
+                    xUnitLoc = it.getUniformLocation("xUnit")
+                    coeffsLoc = it.getUniformLocation("coeffs")
+                }
+
             }
             shader!!.useProgram()
 
@@ -440,13 +372,12 @@ void main() {
             )
 
             // Do custom per-frame shader preparation.
-            shaderCallbacks.onPrepareShader(
+            onPrepareShader(
                 shader, texMatrix, frameWidth, frameHeight, viewportWidth, viewportHeight
             )
         }
 
         fun release() {
-            drawer.release()
             i420TextureFrameBuffer.release()
 
             if (currentShader != null) {
@@ -463,7 +394,6 @@ void main() {
          */
         fun drawTexture(
             inputTextureBuffer: VideoFrameTextureBuffer,
-            drawer: GlDrawer,
             renderMatrix: Matrix?,
             frameWidth: Int,
             frameHeight: Int,
@@ -481,15 +411,33 @@ void main() {
                 )
 
             when (VideoFrameTextureBuffer.Type.OES) {
-                VideoFrameTextureBuffer.Type.OES -> drawer.drawOes(
+                VideoFrameTextureBuffer.Type.OES -> drawOes(
                     inputTextureBuffer.textureId, finalGlMatrix, frameWidth, frameHeight, viewportX,
                     viewportY, viewportWidth, viewportHeight
                 )
-                VideoFrameTextureBuffer.Type.RGB -> drawer.drawRgb(
+                VideoFrameTextureBuffer.Type.RGB -> drawRgb(
                     inputTextureBuffer.textureId, finalGlMatrix, frameWidth, frameHeight, viewportX,
                     viewportY, viewportWidth, viewportHeight
                 )
             }
+        }
+
+        fun onPrepareShader(
+            shader: GlShader?,
+            texMatrix: FloatArray?,
+            frameWidth: Int,
+            frameHeight: Int,
+            viewportWidth: Int,
+            viewportHeight: Int
+        ) {
+            GLES20.glUniform4fv(coeffsLoc,  /* count= */1, coeffs,  /* offset= */0)
+            // Matrix * (1;0;0;0) / (width / stepSize). Note that OpenGL uses column major order.
+            GLES20.glUniform2f(
+                xUnitLoc,
+                stepSize * texMatrix!![0] / frameWidth,
+                stepSize * texMatrix[1] / frameWidth
+            )
+            DefaultEglCore.checkGlError("prepare")
         }
     }
 

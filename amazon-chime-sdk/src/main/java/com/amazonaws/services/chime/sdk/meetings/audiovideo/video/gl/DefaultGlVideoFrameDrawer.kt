@@ -100,7 +100,11 @@ private val FULL_RECTANGLE_TEXTURE_BUFFER: FloatBuffer =
  * [DefaultGlVideoFrameDrawer] simply draws the frames as opaque quads onto the current surface
  */
 class DefaultGlVideoFrameDrawer : GlVideoFrameDrawer {
-    private var currentShaderType: GlGenericDrawer.ShaderType? = null
+    enum class ShaderType {
+        OES, RGB, YUV
+    }
+
+    private var currentShaderType: ShaderType? = null
 
     private var currentShader: GlShader? =
         null
@@ -292,6 +296,7 @@ class DefaultGlVideoFrameDrawer : GlVideoFrameDrawer {
             renderMatrix.preConcat(additionalRenderMatrix)
         }
         if (isTextureFrame) {
+            Log.e("ASD", "TEXTUre")
             val textureBuffer = frame.buffer as VideoFrameTextureBuffer
             val finalMatrix =
                 Matrix(textureBuffer.transformMatrix)
@@ -331,7 +336,7 @@ class DefaultGlVideoFrameDrawer : GlVideoFrameDrawer {
         viewportX: Int, viewportY: Int, viewportWidth: Int, viewportHeight: Int
     ) {
         prepareShader(
-            GlGenericDrawer.ShaderType.OES, texMatrix, frameWidth, frameHeight, viewportWidth, viewportHeight
+            ShaderType.OES, texMatrix, frameWidth, frameHeight, viewportWidth, viewportHeight
         )
         // Bind the texture.
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
@@ -356,7 +361,7 @@ class DefaultGlVideoFrameDrawer : GlVideoFrameDrawer {
         viewportX: Int, viewportY: Int, viewportWidth: Int, viewportHeight: Int
     ) {
         prepareShader(
-            GlGenericDrawer.ShaderType.RGB, texMatrix, frameWidth, frameHeight, viewportWidth, viewportHeight
+            ShaderType.RGB, texMatrix, frameWidth, frameHeight, viewportWidth, viewportHeight
         )
         // Bind the texture.
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
@@ -377,7 +382,7 @@ class DefaultGlVideoFrameDrawer : GlVideoFrameDrawer {
         viewportX: Int, viewportY: Int, viewportWidth: Int, viewportHeight: Int
     ) {
         prepareShader(
-            GlGenericDrawer.ShaderType.YUV, texMatrix, frameWidth, frameHeight, viewportWidth, viewportHeight
+            ShaderType.YUV, texMatrix, frameWidth, frameHeight, viewportWidth, viewportHeight
         )
         // Bind the textures.
         for (i in 0..2) {
@@ -395,7 +400,7 @@ class DefaultGlVideoFrameDrawer : GlVideoFrameDrawer {
     }
 
     private fun prepareShader(
-        shaderType: GlGenericDrawer.ShaderType, texMatrix: FloatArray?, frameWidth: Int,
+        shaderType: ShaderType, texMatrix: FloatArray?, frameWidth: Int,
         frameHeight: Int, viewportWidth: Int, viewportHeight: Int
     ) {
         val shader: GlShader?
@@ -405,9 +410,7 @@ class DefaultGlVideoFrameDrawer : GlVideoFrameDrawer {
         } else {
             // Allocate new shader.
             currentShaderType = shaderType
-            if (currentShader != null) {
-                currentShader!!.release()
-            }
+            currentShader?.release()
             shader = GlShader(
                 VERTEX_SHADER,
                 FRAGMENT_SHADER_YUV
@@ -416,7 +419,7 @@ class DefaultGlVideoFrameDrawer : GlVideoFrameDrawer {
             shader.useProgram()
 
             // Set input texture units.
-            if (shaderType == GlGenericDrawer.ShaderType.YUV) {
+            if (shaderType == ShaderType.YUV) {
                 GLES20.glUniform1i(shader.getUniformLocation("y_tex"), 0)
                 GLES20.glUniform1i(shader.getUniformLocation("u_tex"), 1)
                 GLES20.glUniform1i(shader.getUniformLocation("v_tex"), 2)

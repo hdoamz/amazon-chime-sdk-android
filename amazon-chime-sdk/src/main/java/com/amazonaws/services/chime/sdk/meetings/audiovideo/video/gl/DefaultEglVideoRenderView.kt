@@ -6,8 +6,13 @@
 package com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl
 
 import android.content.Context
+import android.graphics.Matrix
 import android.graphics.Point
 import android.opengl.EGLContext
+import android.opengl.GLES20
+import android.os.Handler
+import android.os.HandlerThread
+import android.os.Looper
 import android.util.AttributeSet
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -16,7 +21,9 @@ import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrame
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 
 open class DefaultEglVideoRenderView @JvmOverloads constructor(
@@ -168,7 +175,33 @@ open class DefaultEglVideoRenderView @JvmOverloads constructor(
     private var surfaceWidth = 0
     private var surfaceHeight = 0
 
-    private val eglRenderer: DefaultEglVideoFrameRenderer = DefaultEglVideoFrameRenderer()
+    private var renderHandler: Handler? = null
+
+    // EGL and GL resources for drawing YUV/OES textures. After initialization, these are only
+    // accessed from the render thread.
+    private var eglCore: DefaultEglCore? = null
+    private val surface: Any? = null
+
+    private var usePresentationTimeStamp = false
+    private val drawMatrix: Matrix = Matrix()
+
+    // Pending frame to render. Serves as a queue with size 1. Synchronized on |frameLock|.
+    private val frameLock = Any()
+
+    private var pendingFrame: VideoFrame? = null
+
+    // These variables are synchronized on |layoutLock|.
+    private val layoutLock = Any()
+    private var layoutAspectRatio = 0f
+
+    // If true, mirrors the video stream horizontally.
+    private val mirrorHorizontally = false
+
+    // If true, mirrors the video stream vertically.
+    private val mirrorVertically = false
+
+    private val frameDrawer: DefaultGlVideoFrameDrawer = DefaultGlVideoFrameDrawer()
+
     private val videoLayoutMeasure: VideoLayoutMeasure =
         VideoLayoutMeasure()
     private lateinit var logger: Logger
@@ -185,20 +218,40 @@ open class DefaultEglVideoRenderView @JvmOverloads constructor(
 
         rotatedFrameWidth = 0;
         rotatedFrameHeight = 0;
-        eglRenderer.init(eglContext, logger);
+
+        val thread = HandlerThread("SurfaceTextureVideoSource")
+        thread.start()
+        this.renderHandler = Handler(thread.looper)
+
+        this.logger = logger
+
+        val handler = this.renderHandler ?: throw UnknownError("No handler in init")
+        // Create EGL context on the newly created render thread. It should be possibly to create the
+        // context on this thread and make it current on the render thread, but this causes failure on
+        // some Marvel based JB devices. https://bugs.chromium.org/p/webrtc/issues/detail?id=6350.
+        runBlocking(handler.asCoroutineDispatcher().immediate) {
+            eglCore =
+                DefaultEglCore(
+                    eglContext,
+                    logger = logger
+                )
+            logger?.info(TAG, "Renderer initialized")
+            surface?.let { createEglSurfaceInternal(it) }
+        }
+        this.logger?.info(TAG, "Renderer initialized")
 
     }
 
     override fun dispose() {
         this.logger.info(TAG, "Releasing")
-        eglRenderer.release()
+        releaseRender()
     }
 
     override fun surfaceChanged(holder: SurfaceHolder?, format: Int, width: Int, height: Int) {
     }
 
     override fun surfaceDestroyed(holder: SurfaceHolder?) {
-        eglRenderer.releaseEglSurface();
+        releaseEglSurface();
     }
 
     override fun surfaceCreated(holder: SurfaceHolder?) {
@@ -207,7 +260,7 @@ open class DefaultEglVideoRenderView @JvmOverloads constructor(
         updateSurfaceSize();
 
         holder?.let {
-            eglRenderer.createEglSurface(it.surface)
+            createEglSurfaceInternal(it.surface)
         }
     }
 
@@ -224,7 +277,7 @@ open class DefaultEglVideoRenderView @JvmOverloads constructor(
         right: Int,
         bottom: Int
     ) {
-        eglRenderer.setLayoutAspectRatio((right - left) / (bottom - top).toFloat())
+        setLayoutAspectRatio((right - left) / (bottom - top).toFloat())
         updateSurfaceSize()
     }
 
@@ -246,7 +299,7 @@ open class DefaultEglVideoRenderView @JvmOverloads constructor(
             }
         }
 
-        eglRenderer.render(frame)
+        render(frame)
     }
 
     private fun updateSurfaceSize() {
@@ -282,5 +335,127 @@ open class DefaultEglVideoRenderView @JvmOverloads constructor(
             surfaceWidth = surfaceHeight
             holder.setSizeFromLayout()
         }
+    }
+
+    fun createEglSurfaceInternal(surface: Any) {
+        val handler = this.renderHandler ?: throw UnknownError("No handler in call to create EGL Surface")
+        handler.post {
+            if (eglCore != null && eglCore?.hasSurface() == false) {
+                eglCore?.createWindowSurface(surface)
+                eglCore?.makeCurrent()
+
+                // Necessary for YUV frames with odd width.
+                // GLES20.glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1)
+                logger?.info(TAG, "Created window surface for EGLRenderer")
+
+            }
+        }
+    }
+
+    fun releaseEglSurface() {
+        val handler = this.renderHandler ?: return
+        runBlocking(handler.asCoroutineDispatcher().immediate) {
+            logger?.info(TAG, "Releasing EGL surface")
+
+            eglCore?.makeNothingCurrent()
+            eglCore?.releaseSurface()
+        }
+    }
+
+    fun render(frame: VideoFrame) {
+        synchronized(frameLock) {
+            if (pendingFrame != null) {
+                logger?.info(TAG, "Releasing pending frame")
+                pendingFrame?.release()
+            }
+            pendingFrame = frame
+            pendingFrame?.retain()
+            val handler = renderHandler ?: throw UnknownError("No handler in render function")
+            handler.post(::renderFrameOnRenderThread)
+        }
+    }
+
+    fun setLayoutAspectRatio(layoutAspectRatio: Float) {
+        synchronized(layoutLock) { this.layoutAspectRatio = layoutAspectRatio }
+    }
+    /**
+     * Block until any pending frame is returned and all GL resources released, even if an interrupt
+     * occurs. If an interrupt occurs during release(), the interrupt flag will be set. This function
+     * should be called before the Activity is destroyed and the EGLContext is still valid. If you
+     * don't call this function, the GL resources might leak.
+     */
+    fun releaseRender() {
+        val handler = renderHandler ?: throw UnknownError("No handler in release")
+        runBlocking(handler.asCoroutineDispatcher().immediate) {
+            logger?.info(TAG, "Releasing EGL resources")
+            // Detach current shader program.
+            GLES20.glUseProgram( /* program= */0)
+            frameDrawer.release()
+
+            eglCore?.makeNothingCurrent()
+            eglCore?.release()
+            eglCore = null
+        }
+        val renderLooper: Looper = handler.looper
+        renderLooper.quitSafely()
+        this.renderHandler = null
+
+        synchronized (frameLock) {
+            if (pendingFrame != null) {
+                pendingFrame?.release();
+                pendingFrame = null;
+            }
+        }
+    }
+
+    private fun renderFrameOnRenderThread() {
+        // Fetch and render |pendingFrame|.
+        var frame: VideoFrame
+        synchronized(frameLock) {
+            if (pendingFrame == null) {
+                return
+            }
+            frame = pendingFrame as VideoFrame
+            pendingFrame = null
+        }
+
+        val frameAspectRatio =
+            frame.getRotatedWidth() / frame.getRotatedHeight().toFloat()
+        var drawnAspectRatio: Float
+        synchronized(
+            layoutLock
+        ) {
+            drawnAspectRatio =
+                if (layoutAspectRatio != 0f) layoutAspectRatio else frameAspectRatio
+        }
+        val scaleX: Float
+        val scaleY: Float
+        if (frameAspectRatio > drawnAspectRatio) {
+            scaleX = drawnAspectRatio / frameAspectRatio
+            scaleY = 1f
+        } else {
+            scaleX = 1f
+            scaleY = frameAspectRatio / drawnAspectRatio
+        }
+        drawMatrix.reset()
+        drawMatrix.preTranslate(0.5f, 0.5f)
+        drawMatrix.preScale(if (mirrorHorizontally) -1f else 1f, if (mirrorVertically) -1f else 1f)
+        drawMatrix.preScale(scaleX, scaleY)
+        drawMatrix.preTranslate(-0.5f, -0.5f)
+        GLES20.glClearColor(1f, 0f, 0f, 1f)
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+        eglCore?.let {
+            frameDrawer.drawFrame(
+                frame, drawMatrix, 0 /* viewportX */, 0 /* viewportY */,
+                it.surfaceWidth(), it.surfaceHeight()
+            )
+            val swapBuffersStartTimeNs = System.nanoTime()
+            if (usePresentationTimeStamp) {
+//                    it.swapBuffers(frame.getTimestampNs())
+            } else {
+                it.swapBuffers()
+            }
+        }
+        frame.release()
     }
 }

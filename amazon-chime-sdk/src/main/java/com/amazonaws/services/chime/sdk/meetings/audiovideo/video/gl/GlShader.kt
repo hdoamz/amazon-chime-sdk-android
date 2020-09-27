@@ -20,18 +20,6 @@ class GlShader(vertexSource: String, fragmentSource: String) {
 
     /**
      * Enable and upload a vertex array for attribute |label|. The vertex data is specified in
-     * |buffer| with |dimension| number of components per vertex.
-     */
-    fun setVertexAttribArray(
-        label: String,
-        dimension: Int,
-        buffer: FloatBuffer?
-    ) {
-        setVertexAttribArray(label, dimension, 0 /* stride */, buffer)
-    }
-
-    /**
-     * Enable and upload a vertex array for attribute |label|. The vertex data is specified in
      * |buffer| with |dimension| number of components per vertex and specified |stride|.
      */
     fun setVertexAttribArray(
