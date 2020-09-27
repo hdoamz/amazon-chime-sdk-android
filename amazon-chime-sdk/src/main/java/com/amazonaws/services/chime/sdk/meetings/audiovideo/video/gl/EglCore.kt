@@ -5,7 +5,7 @@ import android.opengl.EGLSurface
 
 interface EglCore {
     // Public so it can be reused
-    var eglContext: EGLContext?
+    var eglContext: EGLContext
 
     /**
      * Discards all resources held by this class, notably the EGL context.  This must be

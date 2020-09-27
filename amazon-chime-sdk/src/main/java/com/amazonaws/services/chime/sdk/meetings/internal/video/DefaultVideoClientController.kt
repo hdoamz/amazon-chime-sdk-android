@@ -129,12 +129,12 @@ class DefaultVideoClientController(
         logger.info(TAG, "Choosing external video source in media client")
         if (source == null) {
             logger.info(TAG, "Choosing null external video source in media client")
-            videoClient?.setExternalVideoSource(null)
+            videoClient?.setExternalVideoSource(null, sharedEglContext)
             return
         }
 
         videoSourceAdapter = VideoSourceAdapter(source)
-        videoClient?.setExternalVideoSource(videoSourceAdapter)
+        videoClient?.setExternalVideoSource(videoSourceAdapter, sharedEglContext)
     }
 
     override fun setRemotePaused(isPaused: Boolean, videoId: Int) {
@@ -197,7 +197,7 @@ class DefaultVideoClientController(
             sharedEglContext
         )
 
-        videoSourceAdapter?.let {  videoClient?.setExternalVideoSource(it) }
+        videoSourceAdapter?.let {  videoClient?.setExternalVideoSource(it, sharedEglContext) }
     }
 
     override fun stopVideoClient() {

@@ -167,7 +167,8 @@ class DefaultVideoClientObserver(
             )
         }
 
-        //sdkFrame?.release()
+        sdkFrame?.release()
+        sdkFrame?.release()
     }
 
     override fun onMetrics(metrics: IntArray?, values: DoubleArray?) {
