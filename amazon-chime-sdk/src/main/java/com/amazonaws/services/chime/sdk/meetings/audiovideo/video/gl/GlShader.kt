@@ -46,7 +46,7 @@ class GlShader(vertexSource: String, fragmentSource: String) {
         val location = getAttribLocation(label)
         GLES20.glEnableVertexAttribArray(location)
         GLES20.glVertexAttribPointer(location, dimension, GLES20.GL_FLOAT, false, stride, buffer)
-        EglCore.checkGlError("setVertexAttribArray")
+        DefaultEglCore.checkGlError("setVertexAttribArray")
     }
 
     fun getUniformLocation(label: String): Int {
@@ -54,7 +54,7 @@ class GlShader(vertexSource: String, fragmentSource: String) {
             throw RuntimeException("The program has been released")
         }
         val location = GLES20.glGetUniformLocation(program, label)
-        EglCore.checkGlError("setVertexAttribArray")
+        DefaultEglCore.checkGlError("setVertexAttribArray")
 
         if (location < 0) {
             throw RuntimeException("Could not locate uniform '$label' in program")
@@ -67,7 +67,7 @@ class GlShader(vertexSource: String, fragmentSource: String) {
             throw RuntimeException("The program has been released")
         }
         GLES20.glUseProgram(program)
-        EglCore.checkGlError("glUseProgram")
+        DefaultEglCore.checkGlError("glUseProgram")
     }
 
     fun release() {
@@ -91,7 +91,7 @@ class GlShader(vertexSource: String, fragmentSource: String) {
             if (compileStatus[0] != GLES20.GL_TRUE) {
                 throw RuntimeException(GLES20.glGetShaderInfoLog(shader))
             }
-            EglCore.checkGlError("compileShader")
+            DefaultEglCore.checkGlError("compileShader")
             return shader
         }
     }
@@ -128,6 +128,6 @@ class GlShader(vertexSource: String, fragmentSource: String) {
         // shaders are fine however - it will delete them when they are no longer attached to a program.
         GLES20.glDeleteShader(vertexShader)
         GLES20.glDeleteShader(fragmentShader)
-        EglCore.checkGlError("Creating GlShader")
+        DefaultEglCore.checkGlError("Creating GlShader")
     }
 }

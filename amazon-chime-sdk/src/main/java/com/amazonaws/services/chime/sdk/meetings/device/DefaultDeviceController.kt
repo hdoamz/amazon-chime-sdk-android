@@ -24,7 +24,7 @@ import android.util.Range
 import android.util.Size
 import androidx.annotation.VisibleForTesting
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoSink
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.EglCore
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.DefaultEglCore
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source.DefaultCameraCaptureSource
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source.VideoCaptureFormat
 import com.amazonaws.services.chime.sdk.meetings.internal.audio.AudioClientController
@@ -48,7 +48,7 @@ class DefaultDeviceController(
 ) : DeviceController {
     private val deviceChangeObservers = mutableSetOf<DeviceChangeObserver>()
 
-    private val eglCore = EglCore(sharedEGLContext, logger)
+    private val eglCore = DefaultEglCore(sharedEGLContext, logger)
 
     private var cameraCaptureVideoSource: DefaultCameraCaptureSource? = null
     private var currentCameraCaptureMediaDevice: MediaDevice? = null

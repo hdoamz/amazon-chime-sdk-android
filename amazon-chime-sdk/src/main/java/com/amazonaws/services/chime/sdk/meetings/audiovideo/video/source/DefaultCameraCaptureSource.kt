@@ -7,7 +7,6 @@ import android.graphics.Matrix
 import android.hardware.camera2.*
 import android.opengl.EGL14
 import android.opengl.EGLContext
-import android.opengl.GLES20
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Range
@@ -15,8 +14,8 @@ import android.view.Surface
 import android.view.WindowManager
 import androidx.core.app.ActivityCompat
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.*
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.EglCore
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.YuvConverter
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.DefaultGlVideoFrameTextureBufferConverter
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.DefaultEglCore
 import com.amazonaws.services.chime.sdk.meetings.device.MediaDevice
 import com.amazonaws.services.chime.sdk.meetings.device.MediaDeviceType
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
@@ -30,7 +29,7 @@ class DefaultCameraCaptureSource(
     private val sharedEGLContext: EGLContext = EGL14.EGL_NO_CONTEXT
 ) : CameraCaptureSource, VideoSink {
     private val thread: HandlerThread = HandlerThread("DefaultCameraCaptureSource")
-    private lateinit var eglCore: EglCore
+    private lateinit var eglCore: DefaultEglCore
     val handler: Handler
 
     private val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
@@ -64,7 +63,7 @@ class DefaultCameraCaptureSource(
 
         runBlocking(handler.asCoroutineDispatcher().immediate) {
             eglCore =
-                EglCore(
+                DefaultEglCore(
                     EGL14.EGL_NO_CONTEXT,
                     logger = logger
                 )
@@ -250,21 +249,17 @@ class DefaultCameraCaptureSource(
     override fun onVideoFrameReceived(frame: VideoFrame) {
         var processedBuffer: DefaultVideoFrameTextureBuffer =
             createTextureBufferWithModifiedTransformMatrix(frame.buffer as DefaultVideoFrameTextureBuffer, !isCameraFrontFacing, -cameraOrientation)
-//        if (convertToCPU) {
-//            processedBuffer = YuvConverter().convert(processedBuffer as VideoFrameTextureBuffer)
-//        }
-        val processedFrame = processedBuffer.toI420()?.let {
+
+        val cpuBuffer = DefaultGlVideoFrameTextureBufferConverter().toI420(processedBuffer)
+        val processedFrame =
             VideoFrame(
                 frame.timestamp,
-                it,
+                cpuBuffer,
                 getFrameOrientation()
             )
-        }
         processedBuffer?.release()
         sinks.forEach{
-            if (processedFrame != null) {
                 it.onVideoFrameReceived(processedFrame)
-            }
         }
         processedFrame?.release()
     }

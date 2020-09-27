@@ -8,11 +8,9 @@ import android.opengl.EGLContext
 import android.opengl.GLES11Ext
 import android.opengl.GLES20
 import android.os.Handler
-import android.os.HandlerThread
 import android.view.Surface
-import androidx.annotation.CallSuper
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.*
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.EglCore
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.DefaultEglCore
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 import com.xodee.client.video.TimestampAligner
 import kotlinx.coroutines.android.asCoroutineDispatcher
@@ -27,7 +25,7 @@ class SurfaceTextureCaptureSource(
     private var textureId: Int = 0;
     private lateinit var surfaceTexture: SurfaceTexture
     lateinit var surface: Surface
-    private lateinit var eglCore: EglCore
+    private lateinit var eglCore: DefaultEglCore
 
     private val timestampAligner = TimestampAligner()
     var currentVideoCaptureFormat: VideoCaptureFormat? = null
@@ -50,7 +48,7 @@ class SurfaceTextureCaptureSource(
     init {
         runBlocking(handler.asCoroutineDispatcher().immediate) {
             eglCore =
-                EglCore(
+                DefaultEglCore(
                     sharedEGLContext,
                     logger = logger
                 )
@@ -58,7 +56,7 @@ class SurfaceTextureCaptureSource(
             eglCore.makeCurrent()
             val textures = IntArray(1)
             GLES20.glGenTextures(1, textures, 0)
-            EglCore.checkGlError("Generating texture for video source")
+            DefaultEglCore.checkGlError("Generating texture for video source")
 
             textureId = textures[0];
             GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId);
@@ -82,7 +80,7 @@ class SurfaceTextureCaptureSource(
                 GLES20.GL_TEXTURE_WRAP_T,
                 GLES20.GL_CLAMP_TO_EDGE
             );
-            EglCore.checkGlError("Binding texture for video source")
+            DefaultEglCore.checkGlError("Binding texture for video source")
 
             surfaceTexture = SurfaceTexture(textureId)
             surfaceTexture.setOnFrameAvailableListener({

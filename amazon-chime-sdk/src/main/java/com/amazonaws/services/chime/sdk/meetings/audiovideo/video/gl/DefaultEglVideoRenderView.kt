@@ -168,7 +168,7 @@ open class DefaultEglVideoRenderView @JvmOverloads constructor(
     private var surfaceWidth = 0
     private var surfaceHeight = 0
 
-    private val eglRenderer: EglRenderer = EglRenderer()
+    private val eglRenderer: DefaultEglVideoFrameRenderer = DefaultEglVideoFrameRenderer()
     private val videoLayoutMeasure: VideoLayoutMeasure =
         VideoLayoutMeasure()
     private lateinit var logger: Logger

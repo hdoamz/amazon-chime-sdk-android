@@ -11,7 +11,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.AudioVideoFacade
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.EglCore
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.DefaultEglCore
 import com.amazonaws.services.chime.sdk.meetings.session.CreateAttendeeResponse
 import com.amazonaws.services.chime.sdk.meetings.session.CreateMeetingResponse
 import com.amazonaws.services.chime.sdk.meetings.session.DefaultMeetingSession
@@ -37,7 +37,7 @@ class MeetingActivity : AppCompatActivity(),
     private lateinit var meetingId: String
     private lateinit var name: String
 
-    private val eglCore = EglCore(logger = logger)
+    private val eglCore = DefaultEglCore(logger = logger)
 
     private val TAG = "InMeetingActivity"
 

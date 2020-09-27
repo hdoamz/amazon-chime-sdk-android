@@ -94,7 +94,7 @@ void main() {
                 stepSize * texMatrix!![0] / frameWidth,
                 stepSize * texMatrix[1] / frameWidth
             )
-            EglCore.checkGlError("prepare")
+            DefaultEglCore.checkGlError("prepare")
         }
 
         companion object {
@@ -182,7 +182,6 @@ void main() {
             val uvHeight = (frameHeight + 1) / 2
             // Total height of the combined memory layout.
             val totalHeight = frameHeight + uvHeight
-            logger.info("blah", "ALLOCATING")
 
             val i420ByteBuffer: ByteBuffer = JniUtil.nativeAllocateByteBuffer(stride * totalHeight)
 
@@ -200,7 +199,7 @@ void main() {
 
             // Bind our framebuffer.
             GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, i420TextureFrameBuffer.frameBufferId)
-            EglCore.checkGlError("glBindFramebuffer")
+            DefaultEglCore.checkGlError("glBindFramebuffer")
 
             // Draw Y.
             shaderCallbacks.setPlaneY()
@@ -236,10 +235,11 @@ void main() {
                 GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, i420ByteBuffer
             )
 
-            EglCore.checkGlError("YuvConverter.convert")
+            DefaultEglCore.checkGlError("YuvConverter.convert")
 
             // Restore normal framebuffer.
             GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+            i420TextureFrameBuffer.release()
 
             // Prepare Y, U, and V ByteBuffer slices.
             val yPos = 0
@@ -261,7 +261,6 @@ void main() {
             i420ByteBuffer.limit(vPos + uvSize)
             val dataV: ByteBuffer = i420ByteBuffer.slice()
 
-            i420TextureFrameBuffer.release()
             return@runBlocking DefaultVideoFrameI420Buffer(
                 width,
                 height,
@@ -274,7 +273,7 @@ void main() {
                 Runnable {
                     JniUtil.nativeFreeByteBuffer(i420ByteBuffer)
                 }
-            );
+            )
         }
     }
 
@@ -336,7 +335,7 @@ void main() {
             Matrix(transformMatrix)
         finalMatrix.preConcat(renderMatrix)
         val finalGlMatrix: FloatArray =
-            EglCore.convertMatrixFromAndroidGraphicsMatrix(
+            DefaultEglCore.convertMatrixFromAndroidGraphicsMatrix(
                 finalMatrix
             )
 

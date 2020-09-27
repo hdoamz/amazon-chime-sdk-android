@@ -64,7 +64,7 @@ class VideoFrameDrawer {
                 yuvTextures = IntArray(3)
                 for (i in 0..2) {
                     yuvTextures!![i] =
-                        EglCore.generateTexture(
+                        DefaultEglCore.generateTexture(
                             GLES20.GL_TEXTURE_2D
                         )
                 }
@@ -237,7 +237,7 @@ class VideoFrameDrawer {
             }
             drawer.drawYuv(
                 yuvUploader.yuvTextures,
-                EglCore.convertMatrixFromAndroidGraphicsMatrix(
+                DefaultEglCore.convertMatrixFromAndroidGraphicsMatrix(
                     renderMatrix
                 ), renderWidth,
                 renderHeight, viewportX, viewportY, viewportWidth, viewportHeight
@@ -274,7 +274,7 @@ class VideoFrameDrawer {
                 Matrix(buffer.transformMatrix)
             finalMatrix.preConcat(renderMatrix)
             val finalGlMatrix =
-                EglCore.convertMatrixFromAndroidGraphicsMatrix(
+                DefaultEglCore.convertMatrixFromAndroidGraphicsMatrix(
                     finalMatrix
                 )
             when (buffer.type) {

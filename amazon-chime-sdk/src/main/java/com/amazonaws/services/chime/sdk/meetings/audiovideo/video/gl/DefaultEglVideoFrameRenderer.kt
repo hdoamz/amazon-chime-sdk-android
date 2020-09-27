@@ -2,7 +2,6 @@ package com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl
 
 import android.graphics.Matrix
 import android.graphics.SurfaceTexture
-import android.opengl.EGL14
 import android.opengl.EGLContext
 import android.opengl.GLES20
 import android.os.Handler
@@ -15,7 +14,8 @@ import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 
 
-class EglRenderer(private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()) {
+class DefaultEglVideoFrameRenderer(private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()) :
+    EglVideoFrameRenderer {
     private var logger: Logger? = null
     private val TAG = "EglRenderer"
 
@@ -27,7 +27,7 @@ class EglRenderer(private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()
 
     // EGL and GL resources for drawing YUV/OES textures. After initialization, these are only
     // accessed from the render thread.
-    private var eglCore: EglCore? = null
+    private var eglCore: DefaultEglCore? = null
     private val surface: Any? = null
 
     private lateinit var drawer: GlDrawer
@@ -57,8 +57,8 @@ class EglRenderer(private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()
      * set with the frame timestamps, which specifies desired presentation time and might be useful
      * for e.g. syncing audio and video.
      */
-    fun init(
-        eglContext: EGLContext = EGL14.EGL_NO_CONTEXT,
+    override fun init(
+        eglContext: EGLContext,
         drawer: GlDrawer,
         usePresentationTimeStamp: Boolean,
         logger: Logger
@@ -77,7 +77,7 @@ class EglRenderer(private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()
         // some Marvel based JB devices. https://bugs.chromium.org/p/webrtc/issues/detail?id=6350.
         runBlocking(handler.asCoroutineDispatcher().immediate) {
             eglCore =
-                EglCore(
+                DefaultEglCore(
                     eglContext,
                     logger = logger
                 )
@@ -92,23 +92,23 @@ class EglRenderer(private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()
      *
      * @see .init
      */
-    fun init(
-        eglContext: EGLContext = EGL14.EGL_NO_CONTEXT,
+    override fun init(
+        eglContext: EGLContext,
         drawer: GlDrawer,
         logger: Logger
     ) {
         init(eglContext, drawer,  /* usePresentationTimeStamp= */false, logger)
     }
 
-    fun createEglSurface(surface: Surface) {
+    override fun createEglSurface(surface: Surface) {
         createEglSurfaceInternal(surface)
     }
 
-    fun createEglSurface(surfaceTexture: SurfaceTexture) {
+    override fun createEglSurface(surfaceTexture: SurfaceTexture) {
         createEglSurfaceInternal(surfaceTexture)
     }
 
-    private fun createEglSurfaceInternal(surface: Any) {
+    override fun createEglSurfaceInternal(surface: Any) {
         val handler = this.handler ?: throw UnknownError("No handler in call to create EGL Surface")
         handler.post {
             if (eglCore != null && eglCore?.hasSurface() == false) {
@@ -123,7 +123,7 @@ class EglRenderer(private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()
         }
     }
 
-    fun releaseEglSurface() {
+    override fun releaseEglSurface() {
         val handler = this.handler ?: return
         runBlocking(handler.asCoroutineDispatcher().immediate) {
             logger?.info(TAG, "Releasing EGL surface")
@@ -133,7 +133,7 @@ class EglRenderer(private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()
         }
     }
 
-    fun render(frame: VideoFrame) {
+    override fun render(frame: VideoFrame) {
         synchronized(frameLock) {
             if (pendingFrame != null) {
                 logger?.info(TAG, "Releasing pending frame")
@@ -146,7 +146,7 @@ class EglRenderer(private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()
         }
     }
 
-    fun setLayoutAspectRatio(layoutAspectRatio: Float) {
+    override fun setLayoutAspectRatio(layoutAspectRatio: Float) {
         synchronized(layoutLock) { this.layoutAspectRatio = layoutAspectRatio }
     }
     /**
@@ -155,7 +155,7 @@ class EglRenderer(private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()
      * should be called before the Activity is destroyed and the EGLContext is still valid. If you
      * don't call this function, the GL resources might leak.
      */
-    fun release() {
+    override fun release() {
         val handler = handler ?: throw UnknownError("No handler in release")
         runBlocking(handler.asCoroutineDispatcher().immediate) {
             logger?.info(TAG, "Releasing EGL resources")
