@@ -14,7 +14,7 @@ import android.view.Surface
 import android.view.WindowManager
 import androidx.core.app.ActivityCompat
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.*
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.DefaultGlVideoFrameTextureBufferConverter
+import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.DefaultGlVideoFrameConverter
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.DefaultEglCore
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.EglCore
 import com.amazonaws.services.chime.sdk.meetings.device.MediaDevice
@@ -55,7 +55,7 @@ class DefaultCameraCaptureSource(
     override val contentHint = ContentHint.Motion
 
     init {
-        if (true) {//sharedEGLContext == EGL14.EGL_NO_CONTEXT) {
+        if (sharedEGLContext == EGL14.EGL_NO_CONTEXT) {
             logger.info(TAG, "No shared EGL context provided, will convert all frames to CPU memory")
             convertToCPU = true
         }
@@ -253,7 +253,7 @@ class DefaultCameraCaptureSource(
 
         if (convertToCPU) {
             processedBuffer.release()
-            processedBuffer = DefaultGlVideoFrameTextureBufferConverter().toI420(processedBuffer as VideoFrameTextureBuffer)
+            processedBuffer = DefaultGlVideoFrameConverter().toI420(processedBuffer as VideoFrameTextureBuffer)
         }
         val processedFrame =
             VideoFrame(

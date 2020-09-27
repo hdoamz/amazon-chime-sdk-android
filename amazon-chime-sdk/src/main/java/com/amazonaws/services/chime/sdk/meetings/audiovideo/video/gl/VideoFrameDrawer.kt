@@ -174,23 +174,6 @@ class VideoFrameDrawer {
     // textures.
     private var lastI420Frame: VideoFrame? = null
     private val renderMatrix = Matrix()
-    fun drawFrame(
-        frame: VideoFrame,
-        drawer: GlDrawer
-    ) {
-        drawFrame(frame, drawer, null /* additionalRenderMatrix */)
-    }
-
-    private fun drawFrame(
-        frame: VideoFrame,
-        drawer: GlDrawer,
-        additionalRenderMatrix: Matrix?
-    ) {
-        drawFrame(
-            frame, drawer, additionalRenderMatrix, 0 /* viewportX */, 0 /* viewportY */,
-            frame.getRotatedWidth(), frame.getRotatedHeight()
-        )
-    }
 
     fun drawFrame(
         frame: VideoFrame,

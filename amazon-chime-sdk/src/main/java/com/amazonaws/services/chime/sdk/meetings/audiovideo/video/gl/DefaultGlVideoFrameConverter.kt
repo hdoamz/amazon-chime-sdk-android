@@ -8,7 +8,7 @@ import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameText
 import com.xodee.client.video.JniUtil
 import java.nio.ByteBuffer
 
-class DefaultGlVideoFrameTextureBufferConverter : GlVideoFrameTextureBufferConverter {
+class DefaultGlVideoFrameConverter : GlVideoFrameConverter {
     /**
      * Class for converting OES textures to a YUV ByteBuffer. It can be constructed on any thread, but
      * should only be operated from a single thread with an active EGL context.
@@ -288,9 +288,5 @@ void main() {
 
     override fun toI420(textureBuffer: VideoFrameTextureBuffer): VideoFrameI420Buffer {
         return YuvConverter().convert(textureBuffer)
-    }
-
-    override fun fromI420(i420Buffer: VideoFrameI420Buffer): VideoFrameTextureBuffer {
-        TODO("Not yet implemented")
     }
 }

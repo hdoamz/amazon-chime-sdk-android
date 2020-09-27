@@ -14,7 +14,7 @@ import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 
 
-class DefaultEglVideoFrameRenderer(private val frameDrawer: VideoFrameDrawer = VideoFrameDrawer()) :
+class DefaultEglVideoFrameRenderer(private val frameDrawer: DefaultGlVideoFrameDrawer = DefaultGlVideoFrameDrawer()) :
     EglVideoFrameRenderer {
     private var logger: Logger? = null
     private val TAG = "EglRenderer"
@@ -217,7 +217,7 @@ class DefaultEglVideoFrameRenderer(private val frameDrawer: VideoFrameDrawer = V
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
         eglCore?.let {
             frameDrawer.drawFrame(
-                frame, drawer, drawMatrix, 0 /* viewportX */, 0 /* viewportY */,
+                frame, drawMatrix, 0 /* viewportX */, 0 /* viewportY */,
                 it.surfaceWidth(), it.surfaceHeight()
             )
             val swapBuffersStartTimeNs = System.nanoTime()
