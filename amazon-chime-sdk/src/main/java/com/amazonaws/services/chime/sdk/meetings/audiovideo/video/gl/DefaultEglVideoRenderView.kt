@@ -185,7 +185,7 @@ open class DefaultEglVideoRenderView @JvmOverloads constructor(
 
         rotatedFrameWidth = 0;
         rotatedFrameHeight = 0;
-        eglRenderer.init(eglContext, GlRectDrawer(), logger);
+        eglRenderer.init(eglContext, logger);
 
     }
 

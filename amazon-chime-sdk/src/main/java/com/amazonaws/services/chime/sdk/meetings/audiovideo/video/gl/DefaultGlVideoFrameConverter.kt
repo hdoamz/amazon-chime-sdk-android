@@ -1,19 +1,115 @@
 package com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl
 
 import android.graphics.Matrix
+import android.opengl.GLES11Ext
 import android.opengl.GLES20
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.DefaultVideoFrameI420Buffer
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameI420Buffer
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameTextureBuffer
 import com.xodee.client.video.JniUtil
 import java.nio.ByteBuffer
+import java.nio.FloatBuffer
+
+private const val VERTEX_SHADER =
+    """
+varying vec2 tc;
+attribute vec4 in_pos;
+attribute vec4 in_tc;
+uniform mat4 tex_mat;
+void main() {
+    gl_Position = in_pos;
+    tc = (tex_mat * in_tc).xy;
+}
+"""
+
+private val FRAGMENT_SHADER_OES: String =
+    """
+#extension GL_OES_EGL_image_external : require
+precision mediump float;
+varying vec2 tc;
+uniform samplerExternalOES tex;
+
+uniform vec2 xUnit;
+uniform vec4 coeffs;
+
+void main() {
+  gl_FragColor.r = coeffs.a + dot(coeffs.rgb,
+      texture2D(tex, tc - 1.5 * xUnit).rgb);
+  gl_FragColor.g = coeffs.a + dot(coeffs.rgb,
+      texture2D(tex, tc - 0.5 * xUnit).rgb);
+  gl_FragColor.b = coeffs.a + dot(coeffs.rgb,
+      texture2D(tex, tc + 0.5 * xUnit).rgb);
+  gl_FragColor.a = coeffs.a + dot(coeffs.rgb,
+      texture2D(tex, tc + 1.5 * xUnit).rgb);
+}
+
+"""
+
+private val FRAGMENT_SHADER_RGB: String =
+"""
+precision mediump float;
+varying vec2 tc;
+uniform samplerExternalOES tex;
+
+uniform vec2 xUnit;
+uniform vec4 coeffs;
+
+void main() {
+  gl_FragColor.r = coeffs.a + dot(coeffs.rgb,
+      texture2D(tex, tc - 1.5 * xUnit).rgb);
+  gl_FragColor.g = coeffs.a + dot(coeffs.rgb,
+      texture2D(tex, tc - 0.5 * xUnit).rgb);
+  gl_FragColor.b = coeffs.a + dot(coeffs.rgb,
+      texture2D(tex, tc + 0.5 * xUnit).rgb);
+  gl_FragColor.a = coeffs.a + dot(coeffs.rgb,
+      texture2D(tex, tc + 1.5 * xUnit).rgb);
+}
+
+"""
+
+// Vertex coordinates in Normalized Device Coordinates, i.e. (-1, -1) is bottom-left and (1, 1)
+// is top-right.
+private val FULL_RECTANGLE_BUFFER: FloatBuffer =
+    DefaultEglCore.createFloatBuffer(
+        floatArrayOf(
+            -1.0f, -1.0f,  // Bottom left.
+            1.0f, -1.0f,  // Bottom right.
+            -1.0f, 1.0f,  // Top left.
+            1.0f, 1.0f
+        )
+    )
+
+// Texture coordinates - (0, 0) is bottom-left and (1, 1) is top-right.
+private val FULL_RECTANGLE_TEXTURE_BUFFER: FloatBuffer =
+    DefaultEglCore.createFloatBuffer(
+        floatArrayOf(
+            0.0f, 0.0f,  // Bottom left.
+            1.0f, 0.0f,  // Bottom right.
+            0.0f, 1.0f,  // Top left.
+            1.0f, 1.0f
+        )
+    )
+
+private const val INPUT_VERTEX_COORDINATE_NAME = "in_pos"
+private const val INPUT_TEXTURE_COORDINATE_NAME = "in_tc"
+private const val TEXTURE_MATRIX_NAME = "tex_mat"
 
 class DefaultGlVideoFrameConverter : GlVideoFrameConverter {
+
+
     /**
      * Class for converting OES textures to a YUV ByteBuffer. It can be constructed on any thread, but
      * should only be operated from a single thread with an active EGL context.
      */
     class YuvConverter @JvmOverloads constructor() {
+        private var currentShaderType: GlGenericDrawer.ShaderType? = null
+
+        private var currentShader: GlShader? =
+            null
+        private var inPosLocation = 0
+        private var inTcLocation = 0
+        private var texMatrixLocation = 0
+
 
         private val FRAGMENT_SHADER =
 // Difference in texture coordinate corresponding to one
@@ -243,9 +339,120 @@ void main() {
             )
         }
 
+        /**
+         * Draw an OES texture frame with specified texture transformation matrix. Required resources are
+         * allocated at the first call to this function.
+         */
+        fun drawOes(
+            oesTextureId: Int, texMatrix: FloatArray?, frameWidth: Int, frameHeight: Int,
+            viewportX: Int, viewportY: Int, viewportWidth: Int, viewportHeight: Int
+        ) {
+            prepareShader(
+                GlGenericDrawer.ShaderType.OES, texMatrix, frameWidth, frameHeight, viewportWidth, viewportHeight
+            )
+            // Bind the texture.
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesTextureId)
+            DefaultEglCore.checkGlError("glBindTexture")
+
+            // Draw the texture.
+            GLES20.glViewport(viewportX, viewportY, viewportWidth, viewportHeight)
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
+            DefaultEglCore.checkGlError("glDrawArrays")
+
+            // Unbind the texture as a precaution.
+            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, 0)
+        }
+
+        /**
+         * Draw a RGB(A) texture frame with specified texture transformation matrix. Required resources
+         * are allocated at the first call to this function.
+         */
+        fun drawRgb(
+            textureId: Int, texMatrix: FloatArray?, frameWidth: Int, frameHeight: Int,
+            viewportX: Int, viewportY: Int, viewportWidth: Int, viewportHeight: Int
+        ) {
+            prepareShader(
+                GlGenericDrawer.ShaderType.RGB, texMatrix, frameWidth, frameHeight, viewportWidth, viewportHeight
+            )
+            // Bind the texture.
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId)
+            // Draw the texture.
+            GLES20.glViewport(viewportX, viewportY, viewportWidth, viewportHeight)
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
+            // Unbind the texture as a precaution.
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
+        }
+
+        private fun prepareShader(
+            shaderType: GlGenericDrawer.ShaderType, texMatrix: FloatArray?, frameWidth: Int,
+            frameHeight: Int, viewportWidth: Int, viewportHeight: Int
+        ) {
+            val shader: GlShader?
+            if (shaderType == currentShaderType) {
+                // Same shader type as before, reuse exising shader.
+                shader = currentShader
+            } else {
+                // Allocate new shader.
+                currentShaderType = shaderType
+                if (currentShader != null) {
+                    currentShader!!.release()
+                }
+                shader = GlShader(
+                    VERTEX_SHADER,
+                    FRAGMENT_SHADER_OES
+                )
+                currentShader = shader
+                shader.useProgram()
+
+                GLES20.glUniform1i(shader.getUniformLocation("tex"), 0)
+
+                shaderCallbacks.onNewShader(shader)
+                texMatrixLocation =
+                    shader.getUniformLocation(TEXTURE_MATRIX_NAME)
+                inPosLocation =
+                    shader.getAttribLocation(INPUT_VERTEX_COORDINATE_NAME)
+                inTcLocation =
+                    shader.getAttribLocation(INPUT_TEXTURE_COORDINATE_NAME)
+            }
+            shader!!.useProgram()
+
+            // Upload the vertex coordinates.
+            GLES20.glEnableVertexAttribArray(inPosLocation)
+            GLES20.glVertexAttribPointer(
+                inPosLocation,  /* size= */2,  /* type= */
+                GLES20.GL_FLOAT,  /* normalized= */false,  /* stride= */0,
+                FULL_RECTANGLE_BUFFER
+            )
+
+            // Upload the texture coordinates.
+            GLES20.glEnableVertexAttribArray(inTcLocation)
+            GLES20.glVertexAttribPointer(
+                inTcLocation,  /* size= */2,  /* type= */
+                GLES20.GL_FLOAT,  /* normalized= */false,  /* stride= */0,
+                FULL_RECTANGLE_TEXTURE_BUFFER
+            )
+
+            // Upload the texture transformation matrix.
+            GLES20.glUniformMatrix4fv(
+                texMatrixLocation, 1 /* count= */, false /* transpose= */, texMatrix, 0 /* offset= */
+            )
+
+            // Do custom per-frame shader preparation.
+            shaderCallbacks.onPrepareShader(
+                shader, texMatrix, frameWidth, frameHeight, viewportWidth, viewportHeight
+            )
+        }
+
         fun release() {
             drawer.release()
             i420TextureFrameBuffer.release()
+
+            if (currentShader != null) {
+                currentShader!!.release()
+                currentShader = null
+            }
         }
 
         /**

@@ -17,20 +17,7 @@ interface EglVideoFrameRenderer {
      * for e.g. syncing audio and video.
      */
     fun init(
-        eglContext: EGLContext = EGL14.EGL_NO_CONTEXT,
-        drawer: GlDrawer,
-        usePresentationTimeStamp: Boolean,
-        logger: Logger
-    )
-
-    /**
-     * Same as above with usePresentationTimeStamp set to false.
-     *
-     * @see .init
-     */
-    fun init(
-        eglContext: EGLContext = EGL14.EGL_NO_CONTEXT,
-        drawer: GlDrawer,
+        eglContext: EGLContext,
         logger: Logger
     )
 

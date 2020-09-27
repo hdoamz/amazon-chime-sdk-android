@@ -55,7 +55,7 @@ class DefaultCameraCaptureSource(
     override val contentHint = ContentHint.Motion
 
     init {
-        if (sharedEGLContext == EGL14.EGL_NO_CONTEXT) {
+        if (true) {//sharedEGLContext == EGL14.EGL_NO_CONTEXT) {
             logger.info(TAG, "No shared EGL context provided, will convert all frames to CPU memory")
             convertToCPU = true
         }

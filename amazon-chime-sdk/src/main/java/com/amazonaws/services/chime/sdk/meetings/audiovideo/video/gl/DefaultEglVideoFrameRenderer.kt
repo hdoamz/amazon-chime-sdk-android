@@ -30,7 +30,6 @@ class DefaultEglVideoFrameRenderer(private val frameDrawer: DefaultGlVideoFrameD
     private var eglCore: DefaultEglCore? = null
     private val surface: Any? = null
 
-    private lateinit var drawer: GlDrawer
     private var usePresentationTimeStamp = false
     private val drawMatrix: Matrix = Matrix()
 
@@ -59,16 +58,12 @@ class DefaultEglVideoFrameRenderer(private val frameDrawer: DefaultGlVideoFrameD
      */
     override fun init(
         eglContext: EGLContext,
-        drawer: GlDrawer,
-        usePresentationTimeStamp: Boolean,
         logger: Logger
     ) {
         val thread = HandlerThread("SurfaceTextureVideoSource")
         thread.start()
         this.handler = Handler(thread.looper)
 
-        this.drawer = drawer
-        this.usePresentationTimeStamp = usePresentationTimeStamp
         this.logger = logger
 
         val handler = this.handler ?: throw UnknownError("No handler in init")
@@ -85,19 +80,6 @@ class DefaultEglVideoFrameRenderer(private val frameDrawer: DefaultGlVideoFrameD
             surface?.let { createEglSurfaceInternal(it) }
         }
         this.logger?.info(TAG, "Renderer initialized")
-    }
-
-    /**
-     * Same as above with usePresentationTimeStamp set to false.
-     *
-     * @see .init
-     */
-    override fun init(
-        eglContext: EGLContext,
-        drawer: GlDrawer,
-        logger: Logger
-    ) {
-        init(eglContext, drawer,  /* usePresentationTimeStamp= */false, logger)
     }
 
     override fun createEglSurface(surface: Surface) {

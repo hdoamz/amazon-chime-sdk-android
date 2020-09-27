@@ -410,7 +410,7 @@ class DefaultGlVideoFrameDrawer : GlVideoFrameDrawer {
             }
             shader = GlShader(
                 VERTEX_SHADER,
-                FRAGMENT_SHADER_OES
+                FRAGMENT_SHADER_YUV
             )
             currentShader = shader
             shader.useProgram()
