@@ -11,11 +11,13 @@ import android.opengl.EGL14
 import android.opengl.EGLContext
 import android.opengl.GLES11Ext
 import android.opengl.GLES20
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Range
 import android.view.Surface
 import android.view.WindowManager
+import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.*
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.DefaultEglCore
@@ -738,6 +740,10 @@ void main() {
                     captureRequestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, false)
                     chooseStabilizationMode(captureRequestBuilder)
                     chooseFocusMode(captureRequestBuilder)
+
+                    //captureRequestBuilder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH)
+
+
                     surfaceTextureSource?.surface?.let { captureRequestBuilder.addTarget(it) }
                     session.setRepeatingRequest(
                         captureRequestBuilder.build(), cameraCaptureSessionCaptureCallback, handler
@@ -797,6 +803,7 @@ void main() {
         }
         set(value) {
             handler.post {
+
                 logger.info(TAG,"Setting capture device ID: $value.id")
                 if (value.id == currentDeviceId) {
                     logger.info(TAG, "Already using device ID: $currentDeviceId; ignoring")
@@ -804,6 +811,7 @@ void main() {
                 }
 
                 currentDeviceId = value.id
+                currentDeviceId = cameraManager.cameraIdList[0]
 
                 currentVideoCaptureFormat?.let {
                     stop()
@@ -871,7 +879,10 @@ void main() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.M)
     override fun onVideoFrameReceived(frame: VideoFrame) {
+        val cameraManager: CameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+
         var processedBuffer: VideoFrameBuffer =
             createTextureBufferWithModifiedTransformMatrix(frame.buffer as DefaultVideoFrameTextureBuffer, !isCameraFrontFacing, -cameraOrientation)
 
