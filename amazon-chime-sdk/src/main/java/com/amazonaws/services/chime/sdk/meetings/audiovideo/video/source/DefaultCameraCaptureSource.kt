@@ -1,12 +1,16 @@
 package com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Matrix
+import android.graphics.SurfaceTexture
 import android.hardware.camera2.*
 import android.opengl.EGL14
 import android.opengl.EGLContext
+import android.opengl.GLES11Ext
+import android.opengl.GLES20
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Range
@@ -14,14 +18,17 @@ import android.view.Surface
 import android.view.WindowManager
 import androidx.core.app.ActivityCompat
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.*
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.DefaultGlVideoFrameConverter
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.DefaultEglCore
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.gl.EglCore
 import com.amazonaws.services.chime.sdk.meetings.device.MediaDevice
 import com.amazonaws.services.chime.sdk.meetings.device.MediaDeviceType
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
+import com.xodee.client.video.JniUtil
+import com.xodee.client.video.TimestampAligner
 import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
+import java.nio.ByteBuffer
+import java.nio.FloatBuffer
 
 
 class DefaultCameraCaptureSource(
@@ -29,6 +36,623 @@ class DefaultCameraCaptureSource(
     private val logger: Logger,
     private val sharedEGLContext: EGLContext = EGL14.EGL_NO_CONTEXT
 ) : CameraCaptureSource, VideoSink {
+    /**
+     * Helper class for handling OpenGL framebuffer with only color attachment and no depth or stencil
+     * buffer. Intended for simple tasks such as texture copy, texture downscaling, and texture color
+     * conversion. This class is not thread safe and must be used by a thread with an active GL context.
+     */
+    private class GlFrameBufferHelper(pixelFormat: Int) {
+        private var pixelFormat = 0
+
+        /** Gets the OpenGL frame buffer id. This value is only valid after setSize() has been called.  */
+        var frameBufferId = 0
+            private set
+
+        /** Gets the OpenGL texture id. This value is only valid after setSize() has been called.  */
+        var textureId = 0
+            private set
+        var width: Int
+            private set
+        var height: Int
+            private set
+
+        /**
+         * (Re)allocate texture. Will do nothing if the requested size equals the current size. An
+         * EGLContext must be bound on the current thread when calling this function. Must be called at
+         * least once before using the framebuffer. May be called multiple times to change size.
+         */
+        fun setSize(width: Int, height: Int) {
+            require(!(width <= 0 || height <= 0)) { "Invalid size: " + width + "x" + height }
+            if (width == this.width && height == this.height) {
+                return
+            }
+            this.width = width
+            this.height = height
+            // Lazy allocation the first time setSize() is called.
+            if (textureId == 0) {
+                textureId =
+                    DefaultEglCore.generateTexture(
+                        GLES20.GL_TEXTURE_2D
+                    )
+            }
+            if (frameBufferId == 0) {
+                val frameBuffers = IntArray(1)
+                GLES20.glGenFramebuffers(1, frameBuffers, 0)
+                frameBufferId = frameBuffers[0]
+            }
+
+            // Allocate texture.
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId)
+            GLES20.glTexImage2D(
+                GLES20.GL_TEXTURE_2D, 0, pixelFormat, width, height, 0, pixelFormat,
+                GLES20.GL_UNSIGNED_BYTE, null
+            )
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
+            DefaultEglCore.checkGlError("GlTextureFrameBuffer setSize")
+
+            // Attach the texture to the framebuffer as color attachment.
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, frameBufferId)
+            GLES20.glFramebufferTexture2D(
+                GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0, GLES20.GL_TEXTURE_2D, textureId, 0
+            )
+
+            // Check that the framebuffer is in a good state.
+            val status = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER)
+            check(status == GLES20.GL_FRAMEBUFFER_COMPLETE) { "Framebuffer not complete, status: $status" }
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+        }
+
+        /**
+         * Release texture and framebuffer. An EGLContext must be bound on the current thread when calling
+         * this function. This object should not be used after this call.
+         */
+        fun release() {
+            GLES20.glDeleteTextures(1, intArrayOf(textureId), 0)
+            textureId = 0
+            GLES20.glDeleteFramebuffers(1, intArrayOf(frameBufferId), 0)
+            frameBufferId = 0
+            width = 0
+            height = 0
+        }
+
+        /**
+         * Generate texture and framebuffer resources. An EGLContext must be bound on the current thread
+         * when calling this function. The framebuffer is not complete until setSize() is called.
+         */
+        init {
+            when (pixelFormat) {
+                GLES20.GL_LUMINANCE, GLES20.GL_RGB, GLES20.GL_RGBA -> this.pixelFormat = pixelFormat
+                else -> throw IllegalArgumentException("Invalid pixel format: $pixelFormat")
+            }
+            width = 0
+            height = 0
+        }
+    }
+
+    private class SurfaceTextureCaptureSource(
+        private val logger: Logger,
+        private val handler: Handler,
+        private val sharedEGLContext: EGLContext = EGL14.EGL_NO_CONTEXT
+    ) : VideoSource {
+        private var textureId: Int = 0;
+        private lateinit var surfaceTexture: SurfaceTexture
+        lateinit var surface: Surface
+        private lateinit var eglCore: DefaultEglCore
+
+        private val timestampAligner = TimestampAligner()
+        var currentVideoCaptureFormat: VideoCaptureFormat? = null
+
+        // Frame available listener was called when a texture was already in use
+        private var pendingTexture = false
+
+        // Texture is in use, possibly in another thread
+        private var textureInUse = false
+
+        // Dispose has been called and we are waiting on texture to be released
+        private var quitting = false
+
+        private var sinks = mutableSetOf<VideoSink>()
+
+        override val contentHint: ContentHint = ContentHint.None
+
+        private val TAG = "SurfaceTextureCaptureSource"
+
+        init {
+            runBlocking(handler.asCoroutineDispatcher().immediate) {
+                eglCore =
+                    DefaultEglCore(
+                        sharedEGLContext,
+                        logger = logger
+                    )
+                eglCore.createDummyPbufferSurface()
+                eglCore.makeCurrent()
+                val textures = IntArray(1)
+                GLES20.glGenTextures(1, textures, 0)
+                DefaultEglCore.checkGlError("Generating texture for video source")
+
+                textureId = textures[0];
+                GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId);
+                GLES20.glTexParameteri(
+                    GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+                    GLES20.GL_TEXTURE_MIN_FILTER,
+                    GLES20.GL_LINEAR
+                );
+                GLES20.glTexParameteri(
+                    GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+                    GLES20.GL_TEXTURE_MAG_FILTER,
+                    GLES20.GL_LINEAR
+                );
+                GLES20.glTexParameteri(
+                    GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+                    GLES20.GL_TEXTURE_WRAP_S,
+                    GLES20.GL_CLAMP_TO_EDGE
+                );
+                GLES20.glTexParameteri(
+                    GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+                    GLES20.GL_TEXTURE_WRAP_T,
+                    GLES20.GL_CLAMP_TO_EDGE
+                );
+                DefaultEglCore.checkGlError("Binding texture for video source")
+
+                surfaceTexture = SurfaceTexture(textureId)
+                surfaceTexture.setOnFrameAvailableListener({
+                    logger.error(TAG, "Frame available")
+                    pendingTexture = true
+                    tryCapturingFrame()
+                }, handler)
+                @SuppressLint("Recycle")
+                surface = Surface(surfaceTexture)
+
+                logger.info(TAG, "Created surface texture for video source")
+            }
+        }
+
+        fun start(format: VideoCaptureFormat) {
+            runBlocking(handler.asCoroutineDispatcher().immediate) {
+                quitting = false
+                currentVideoCaptureFormat = format
+                logger.info(
+                    TAG,
+                    "Setting surface texture buffer size for video source to ${format.width}x${format.height}"
+                )
+                currentVideoCaptureFormat?.let { surfaceTexture.setDefaultBufferSize(it.width, it.height) }
+            }
+        }
+
+        fun stop() {
+            runBlocking(handler.asCoroutineDispatcher().immediate) {
+                logger.error(TAG, "Setting on frame available listener to null")
+                surfaceTexture.setOnFrameAvailableListener(null)
+            }
+        }
+
+        override fun addVideoSink(sink: VideoSink) {
+            handler.post {
+                sinks.add(sink)
+            }
+        }
+
+        override fun removeVideoSink(sink: VideoSink) {
+            runBlocking(handler.asCoroutineDispatcher().immediate) {
+                sinks.remove(sink)
+            }
+        }
+
+        fun release() {
+            runBlocking(handler.asCoroutineDispatcher().immediate) {
+                logger.info(TAG, "Releasing surface texture capture source")
+                quitting = true
+                if (!textureInUse) {
+                    dispose();
+                }
+            }
+        }
+
+        private fun dispose() {
+            logger.info(TAG, "Disposing surface texture capture source")
+            runBlocking(handler.asCoroutineDispatcher().immediate) {
+                surface.release()
+                surfaceTexture.release()
+                GLES20.glDeleteTextures(1, intArrayOf(textureId), 0);
+                eglCore.release()
+
+                timestampAligner.dispose()
+            }
+        }
+
+        private fun frameReleased() {
+            handler.post {
+                logger.info(TAG, "Current frame released")
+                textureInUse = false
+                if (quitting) {
+                    this.dispose()
+                } else {
+                    // May have pending frame
+                    tryCapturingFrame()
+                }
+            }
+        }
+
+        private fun tryCapturingFrame() {
+            logger.info(TAG, "q: $quitting, p: $pendingTexture, u: $textureInUse")
+
+            if (quitting || !pendingTexture || textureInUse) {
+                return;
+            }
+            textureInUse = true
+            pendingTexture = false
+
+            // This call is what actually updates the texture
+            surfaceTexture.updateTexImage()
+
+            val transformMatrix = FloatArray(16)
+            surfaceTexture.getTransformMatrix(transformMatrix)
+
+            val format = currentVideoCaptureFormat ?: return
+            val buffer =
+                DefaultVideoFrameTextureBuffer(
+                    logger, format.width, format.height,
+                    textureId, convertMatrixToAndroidGraphicsMatrix(transformMatrix),
+                    VideoFrameTextureBuffer.Type.OES, Runnable { frameReleased() }, handler
+                )
+            val timestamp = timestampAligner.translateTimestamp(surfaceTexture.timestamp)
+            val frame = VideoFrame(timestamp, buffer)
+
+            sinks.forEach { it.onVideoFrameReceived(frame) }
+            frame.release()
+        }
+
+        private fun convertMatrixToAndroidGraphicsMatrix(transformMatrix: FloatArray): Matrix {
+            val values = floatArrayOf(
+                transformMatrix[0 * 4 + 0], transformMatrix[1 * 4 + 0], transformMatrix[3 * 4 + 0],
+                transformMatrix[0 * 4 + 1], transformMatrix[1 * 4 + 1], transformMatrix[3 * 4 + 1],
+                transformMatrix[0 * 4 + 3], transformMatrix[1 * 4 + 3], transformMatrix[3 * 4 + 3]
+            )
+            val matrix = Matrix()
+            matrix.setValues(values)
+            return matrix
+        }
+    }
+
+    /**
+     * Class for converting OES textures to a YUV ByteBuffer. It can be constructed on any thread, but
+     * should only be operated from a single thread with an active EGL context.
+     */
+    private class YuvConverter() {
+        private val VERTEX_SHADER =
+            """
+varying vec2 tc;
+attribute vec4 in_pos;
+attribute vec4 in_tc;
+uniform mat4 tex_mat;
+void main() {
+    gl_Position = in_pos;
+    tc = (tex_mat * in_tc).xy;
+}
+"""
+
+        private val FRAGMENT_SHADER_OES: String =
+            """
+#extension GL_OES_EGL_image_external : require
+precision mediump float;
+varying vec2 tc;
+uniform samplerExternalOES tex;
+
+uniform vec2 xUnit;
+uniform vec4 coeffs;
+
+void main() {
+  gl_FragColor.r = coeffs.a + dot(coeffs.rgb,
+      texture2D(tex, tc - 1.5 * xUnit).rgb);
+  gl_FragColor.g = coeffs.a + dot(coeffs.rgb,
+      texture2D(tex, tc - 0.5 * xUnit).rgb);
+  gl_FragColor.b = coeffs.a + dot(coeffs.rgb,
+      texture2D(tex, tc + 0.5 * xUnit).rgb);
+  gl_FragColor.a = coeffs.a + dot(coeffs.rgb,
+      texture2D(tex, tc + 1.5 * xUnit).rgb);
+}
+"""
+
+
+        // Vertex coordinates in Normalized Device Coordinates, i.e. (-1, -1) is bottom-left and (1, 1)
+// is top-right.
+        private val FULL_RECTANGLE_BUFFER: FloatBuffer =
+            DefaultEglCore.createFloatBuffer(
+                floatArrayOf(
+                    -1.0f, -1.0f,  // Bottom left.
+                    1.0f, -1.0f,  // Bottom right.
+                    -1.0f, 1.0f,  // Top left.
+                    1.0f, 1.0f
+                )
+            )
+
+        // Texture coordinates - (0, 0) is bottom-left and (1, 1) is top-right.
+        private val FULL_RECTANGLE_TEXTURE_BUFFER: FloatBuffer =
+            DefaultEglCore.createFloatBuffer(
+                floatArrayOf(
+                    0.0f, 0.0f,  // Bottom left.
+                    1.0f, 0.0f,  // Bottom right.
+                    0.0f, 1.0f,  // Top left.
+                    1.0f, 1.0f
+                )
+            )
+
+        private val INPUT_VERTEX_COORDINATE_NAME = "in_pos"
+        private val INPUT_TEXTURE_COORDINATE_NAME = "in_tc"
+        private val TEXTURE_MATRIX_NAME = "tex_mat"
+
+        private var program: Int = DefaultEglCore.createProgram(VERTEX_SHADER, FRAGMENT_SHADER_OES)
+
+        private var inPosLocation = 0
+        private var inTcLocation = 0
+        private var texMatrixLocation = 0
+
+        private var xUnitLoc = 0
+        private var coeffsLoc = 0
+        private lateinit var coeffs: FloatArray
+        private var stepSize = 0f
+
+        private val yCoeffs =
+            floatArrayOf(0.256788f, 0.504129f, 0.0979059f, 0.0627451f)
+        private val uCoeffs =
+            floatArrayOf(-0.148223f, -0.290993f, 0.439216f, 0.501961f)
+        private val vCoeffs =
+            floatArrayOf(0.439216f, -0.367788f, -0.0714274f, 0.501961f)
+
+
+        private val i420TextureFrameBuffer =
+            GlFrameBufferHelper(
+                GLES20.GL_RGBA
+            )
+
+        fun convert(inputTextureBuffer: VideoFrameTextureBuffer): VideoFrameI420Buffer {
+            // We use the same technique as the WebRTC SDK to draw into a buffer laid out like
+            //
+            //    +---------+
+            //    |         |
+            //    |  Y      |
+            //    |         |
+            //    |         |
+            //    +----+----+
+            //    | U  | V  |
+            //    |    |    |
+            //    +----+----+
+            //
+            // In memory, we use the same stride for all of Y, U and V. The
+            // U data starts at offset |height| * |stride| from the Y data,
+            // and the V data starts at at offset |stride/2| from the U
+            // data, with rows of U and V data alternating.
+            //
+            // Now, it would have made sense to allocate a pixel buffer with
+            // a single byte per pixel (EGL10.EGL_COLOR_BUFFER_TYPE,
+            // EGL10.EGL_LUMINANCE_BUFFER,), but that seems to be
+            // unsupported by devices. So do the following hack: Allocate an
+            // RGBA buffer, of width |stride|/4. To render each of these
+            // large pixels, sample the texture at 4 different x coordinates
+            // and store the results in the four components.
+            //
+            // Since the V data needs to start on a boundary of such a
+            // larger pixel, stride has to be a multiple of 8 pixels.
+            val frameWidth: Int = inputTextureBuffer.width
+            val frameHeight: Int = inputTextureBuffer.height
+
+
+            val stride = (frameWidth + 7) / 8 * 8
+            val uvHeight = (frameHeight + 1) / 2
+            // Total height of the combined memory layout.
+            val totalHeight = frameHeight + uvHeight
+
+            val i420ByteBuffer: ByteBuffer = JniUtil.nativeAllocateByteBuffer(stride * totalHeight)
+
+            // Viewport width is divided by four since we are squeezing in four color bytes in each RGBA
+            // pixel.
+            val viewportWidth = stride / 4
+
+            // Produce a frame buffer starting at top-left corner, not bottom-left.
+            val renderMatrix = Matrix()
+            renderMatrix.preTranslate(0.5f, 0.5f)
+            renderMatrix.preScale(1f, -1f)
+            renderMatrix.preTranslate(-0.5f, -0.5f)
+
+            i420TextureFrameBuffer.setSize(viewportWidth, totalHeight)
+
+            // Bind our framebuffer.
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, i420TextureFrameBuffer.frameBufferId)
+            DefaultEglCore.checkGlError("glBindFramebuffer")
+
+            // Draw Y.
+            coeffs = yCoeffs
+            stepSize = 1.0f
+            val finalMatrix =
+                Matrix(inputTextureBuffer.transformMatrix)
+            finalMatrix.preConcat(renderMatrix)
+            val finalGlMatrix: FloatArray =
+                DefaultEglCore.convertMatrixFromAndroidGraphicsMatrix(
+                    finalMatrix
+                )
+
+            prepareShader(
+                finalGlMatrix,
+                frameWidth,
+                frameHeight,  /* viewportX= */
+                viewportWidth,  /* viewportHeight= */
+                frameHeight
+            )
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+            GLES20.glBindTexture(
+                GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+                inputTextureBuffer.textureId
+            )
+            DefaultEglCore.checkGlError("glBindTexture")
+            GLES20.glViewport(
+                0,
+                /* viewportY= */
+                0,
+                viewportWidth, frameHeight
+            )
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
+            DefaultEglCore.checkGlError("glDrawArrays")
+
+
+            // Draw U.
+            coeffs = uCoeffs
+            stepSize = 2.0f
+            val viewportWidth1 = viewportWidth / 2  /* viewportHeight= */
+
+
+            prepareShader(
+                finalGlMatrix,
+                frameWidth,
+                frameHeight,  /* viewportX= */
+                viewportWidth1,
+                uvHeight
+            )
+
+            DefaultEglCore.checkGlError("glBindTexture")
+            GLES20.glViewport(
+                0,
+                /* viewportY= */
+                frameHeight,
+                viewportWidth1, uvHeight
+            )
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
+            DefaultEglCore.checkGlError("glDrawArrays")
+
+
+            // Draw V.
+            coeffs = vCoeffs
+            stepSize = 2.0f
+            val viewportX = viewportWidth / 2  /* viewportY= */
+            val viewportWidth2 = viewportWidth / 2  /* viewportHeight= */
+
+            prepareShader(
+                finalGlMatrix, frameWidth,
+                frameHeight,  /* viewportX= */
+                viewportWidth2, uvHeight
+            )
+
+            DefaultEglCore.checkGlError("glBindTexture")
+            GLES20.glViewport(
+                viewportX,
+                frameHeight,
+                viewportWidth2, uvHeight
+            )
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
+            DefaultEglCore.checkGlError("glDrawArrays")
+            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, 0)
+
+            GLES20.glReadPixels(
+                0, 0, i420TextureFrameBuffer.width, i420TextureFrameBuffer.height,
+                GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, i420ByteBuffer
+            )
+
+            DefaultEglCore.checkGlError("YuvConverter.convert")
+
+            // Restore normal framebuffer.
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+            i420TextureFrameBuffer.release()
+
+            // Prepare Y, U, and V ByteBuffer slices.
+            val yPos = 0
+            val uPos = yPos + stride * frameHeight
+            // Rows of U and V alternate in the buffer, so V data starts after the first row of U.
+            val vPos = uPos + stride / 2
+
+            i420ByteBuffer.position(yPos)
+            i420ByteBuffer.limit(yPos + stride * frameHeight)
+            val dataY: ByteBuffer = i420ByteBuffer.slice()
+
+            i420ByteBuffer.position(uPos)
+            // The last row does not have padding.
+            val uvSize = stride * (uvHeight - 1) + stride / 2
+            i420ByteBuffer.limit(uPos + uvSize)
+            val dataU: ByteBuffer = i420ByteBuffer.slice()
+
+            i420ByteBuffer.position(vPos)
+            i420ByteBuffer.limit(vPos + uvSize)
+            val dataV: ByteBuffer = i420ByteBuffer.slice()
+
+            return DefaultVideoFrameI420Buffer(
+                frameWidth,
+                frameHeight,
+                dataY,
+                dataU,
+                dataV,
+                stride,
+                stride,
+                stride,
+                kotlinx.coroutines.Runnable {
+                    JniUtil.nativeFreeByteBuffer(i420ByteBuffer)
+                }
+            )
+        }
+
+        private fun prepareShader(
+            texMatrix: FloatArray?, frameWidth: Int,
+            frameHeight: Int, viewportWidth: Int, viewportHeight: Int
+        ) {
+
+            GLES20.glUseProgram(program)
+            DefaultEglCore.checkGlError("glUseProgram")
+
+            val location = GLES20.glGetUniformLocation(program, "tex")
+
+            GLES20.glUniform1i(location, 0)
+
+            texMatrixLocation = GLES20.glGetUniformLocation(program, TEXTURE_MATRIX_NAME)
+            inPosLocation = GLES20.glGetAttribLocation(program, INPUT_VERTEX_COORDINATE_NAME)
+            inTcLocation = GLES20.glGetAttribLocation(program, INPUT_TEXTURE_COORDINATE_NAME)
+
+            xUnitLoc = GLES20.glGetUniformLocation(program, "xUnit")
+            coeffsLoc = GLES20.glGetUniformLocation(program, "coeffs")
+
+            // Upload the vertex coordinates.
+            GLES20.glEnableVertexAttribArray(inPosLocation)
+            GLES20.glVertexAttribPointer(
+                inPosLocation,  /* size= */2,  /* type= */
+                GLES20.GL_FLOAT,  /* normalized= */false,  /* stride= */0,
+                FULL_RECTANGLE_BUFFER
+            )
+
+            // Upload the texture coordinates.
+            GLES20.glEnableVertexAttribArray(inTcLocation)
+            GLES20.glVertexAttribPointer(
+                inTcLocation,  /* size= */2,  /* type= */
+                GLES20.GL_FLOAT,  /* normalized= */false,  /* stride= */0,
+                FULL_RECTANGLE_TEXTURE_BUFFER
+            )
+
+            // Upload the texture transformation matrix.
+            GLES20.glUniformMatrix4fv(
+                texMatrixLocation,
+                1 /* count= */,
+                false /* transpose= */,
+                texMatrix,
+                0 /* offset= */
+            )
+
+            // Do custom per-frame shader preparation.
+            GLES20.glUniform4fv(coeffsLoc,  /* count= */1, coeffs,  /* offset= */0)
+            GLES20.glUniform2f(
+                xUnitLoc,
+                stepSize * texMatrix!![0] / frameWidth,
+                stepSize * texMatrix[1] / frameWidth
+            )
+        }
+
+        fun release() {
+            i420TextureFrameBuffer.release()
+
+            // Delete program, automatically detaching any shaders from it.
+            if (program != -1) {
+                GLES20.glDeleteProgram(program)
+                program = -1
+            }
+        }
+
+    }
+
     private val thread: HandlerThread = HandlerThread("DefaultCameraCaptureSource")
     private lateinit var eglCore: EglCore
     val handler: Handler
@@ -197,7 +821,7 @@ class DefaultCameraCaptureSource(
         }
 
     override fun switchCamera() {
-        TODO("Not yet implemented")
+        TODO()
     }
 
     override fun start(format: VideoCaptureFormat) {
@@ -253,7 +877,7 @@ class DefaultCameraCaptureSource(
 
         if (convertToCPU) {
             processedBuffer.release()
-            processedBuffer = DefaultGlVideoFrameConverter().toI420(processedBuffer as VideoFrameTextureBuffer)
+            processedBuffer = YuvConverter().convert(processedBuffer as VideoFrameTextureBuffer)
         }
         val processedFrame =
             VideoFrame(
@@ -266,8 +890,6 @@ class DefaultCameraCaptureSource(
         }
 
         processedBuffer.release()
-
-        // processedFrame.release()
     }
 
     override fun addVideoSink(sink: VideoSink) {

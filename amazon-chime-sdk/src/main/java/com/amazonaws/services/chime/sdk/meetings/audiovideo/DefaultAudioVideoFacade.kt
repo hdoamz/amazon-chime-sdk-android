@@ -83,10 +83,6 @@ class DefaultAudioVideoFacade(
         audioVideoController.chooseVideoSource(source)
     }
 
-    override fun setVideoFrameProcessorStages(stages: List<VideoFrameProcessor>) {
-        return
-    }
-
     override fun startLocalVideo() {
         // If no external video source is set, start the device controller capture session
 //        if (!isUsingExternalVideoSource) {

@@ -18,24 +18,7 @@ class GlShader(vertexSource: String, fragmentSource: String) {
         return location
     }
 
-    /**
-     * Enable and upload a vertex array for attribute |label|. The vertex data is specified in
-     * |buffer| with |dimension| number of components per vertex and specified |stride|.
-     */
-    fun setVertexAttribArray(
-        label: String,
-        dimension: Int,
-        stride: Int,
-        buffer: FloatBuffer?
-    ) {
-        if (program == -1) {
-            throw RuntimeException("The program has been released")
-        }
-        val location = getAttribLocation(label)
-        GLES20.glEnableVertexAttribArray(location)
-        GLES20.glVertexAttribPointer(location, dimension, GLES20.GL_FLOAT, false, stride, buffer)
-        DefaultEglCore.checkGlError("setVertexAttribArray")
-    }
+
 
     fun getUniformLocation(label: String): Int {
         if (program == -1) {

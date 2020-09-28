@@ -6,7 +6,6 @@
 package com.amazonaws.services.chime.sdk.meetings.audiovideo
 
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.metric.MetricsObserver
-import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoFrameProcessor
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.source.VideoSource
 
 /**
@@ -56,10 +55,6 @@ interface AudioVideoControllerFacade {
      */
     fun chooseVideoSource(source: VideoSource?)
 
-    /**
-     *
-     */
-    fun setVideoFrameProcessorStages(stages: List<VideoFrameProcessor>)
 
     /**
      * Start local video.
