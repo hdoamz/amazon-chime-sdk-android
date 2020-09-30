@@ -16,7 +16,6 @@ import com.amazonaws.services.chime.sdk.meetings.session.MeetingSessionStatus
 import com.amazonaws.services.chime.sdk.meetings.session.MeetingSessionStatusCode
 import com.amazonaws.services.chime.sdk.meetings.session.URLRewriter
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
-import com.xodee.client.audio.audioclient.AudioClient
 import com.xodee.client.video.DataMessage as mediaDataMessage
 import com.xodee.client.video.VideoClient
 import com.xodee.client.video.VideoClient.VIDEO_CLIENT_NO_PAUSE
@@ -157,9 +156,7 @@ class DefaultVideoClientObserver(
         if (message == null) return
         // Only print error and fatal as the Media team's request to avoid noise
         // Will be changed back to respect logger settings once sanitize the logs
-        if (logLevel == AudioClient.L_ERROR || logLevel == AudioClient.L_FATAL) {
-            logger.error(TAG, message)
-        }
+        logger.debug(TAG, message)
     }
 
     override fun requestTurnCreds(client: VideoClient?) {
