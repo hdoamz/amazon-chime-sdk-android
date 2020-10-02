@@ -5,11 +5,14 @@
 
 package com.amazonaws.services.chime.sdk.meetings.session
 
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
 import android.content.res.AssetManager
 import android.media.AudioManager
 import android.util.Log
+import com.amazonaws.services.chime.sdk.meetings.device.BluetoothDeviceController
 import com.amazonaws.services.chime.sdk.meetings.internal.audio.AudioClientFactory
 import com.amazonaws.services.chime.sdk.meetings.utils.logger.Logger
 import com.xodee.client.audio.audioclient.AudioClient
@@ -41,6 +44,9 @@ class DefaultMeetingSessionTest {
     @MockK
     private lateinit var assetManager: AssetManager
 
+    @MockK
+    private lateinit var bluetoothDeviceController: BluetoothDeviceController
+
     lateinit var meetingSession: DefaultMeetingSession
 
     @Before
@@ -53,9 +59,14 @@ class DefaultMeetingSessionTest {
         every { context.assets } returns assetManager
         every { context.registerReceiver(any(), any()) } returns mockkClass(Intent::class)
         val audioManager = mockkClass(AudioManager::class)
+        val btManager = mockkClass(BluetoothManager::class)
+        val btAdapter = mockkClass(BluetoothAdapter::class)
+        every { btAdapter.getProfileProxy(any(), any(), any()) } returns true
+        every { btAdapter.closeProfileProxy(any(), any()) } returns Unit
+        every { btManager.adapter } returns btAdapter
         every { audioManager.mode } returns AudioManager.MODE_NORMAL
         every { audioManager.isSpeakerphoneOn } returns true
-        every { context.getSystemService(any()) } returns audioManager
+        every { context.getSystemService(any()) } returnsMany listOf(audioManager, audioManager, btManager)
         mockkObject(AudioClientFactory.Companion)
         every { AudioClientFactory.getAudioClient(any(), any()) } returns mockAudioClient
         every { configuration.meetingId } returns "meetingId"

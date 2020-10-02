@@ -5,6 +5,9 @@
 
 package com.amazonaws.services.chime.sdk.meetings.device
 
+import android.os.Build
+import androidx.annotation.RequiresApi
+
 /**
  * [DeviceController] keeps track of the devices being used for audio device
  * (e.g. built-in speaker), video input (e.g. camera)).
@@ -26,6 +29,16 @@ interface DeviceController {
      * @param mediaDevice the audio device selected to use.
      */
     fun chooseAudioDevice(mediaDevice: MediaDevice)
+
+    /**
+     * Get the active local audio device in the meeting, return null if there isn't any.
+     *
+     * NOTE: This requires Android API 24 and above
+     *
+     * @return the active local audio device
+     */
+    @RequiresApi(Build.VERSION_CODES.N)
+    fun getActiveAudioDevice(): MediaDevice?
 
     /**
      * Get the active local camera in the meeting, return null if there isn't any.

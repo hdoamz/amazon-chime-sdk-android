@@ -8,6 +8,8 @@ package com.amazonaws.services.chime.sdk.meetings.audiovideo
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.audio.activespeakerdetector.ActiveSpeakerDetectorFacade
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.audio.activespeakerdetector.ActiveSpeakerObserver
@@ -16,8 +18,8 @@ import com.amazonaws.services.chime.sdk.meetings.audiovideo.metric.MetricsObserv
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoRenderView
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoTileController
 import com.amazonaws.services.chime.sdk.meetings.audiovideo.video.VideoTileObserver
+import com.amazonaws.services.chime.sdk.meetings.device.DefaultDeviceController
 import com.amazonaws.services.chime.sdk.meetings.device.DeviceChangeObserver
-import com.amazonaws.services.chime.sdk.meetings.device.DeviceController
 import com.amazonaws.services.chime.sdk.meetings.device.MediaDevice
 import com.amazonaws.services.chime.sdk.meetings.realtime.RealtimeControllerFacade
 import com.amazonaws.services.chime.sdk.meetings.realtime.RealtimeObserver
@@ -27,7 +29,7 @@ class DefaultAudioVideoFacade(
     private val context: Context,
     private val audioVideoController: AudioVideoControllerFacade,
     private val realtimeController: RealtimeControllerFacade,
-    private val deviceController: DeviceController,
+    private val deviceController: DefaultDeviceController,
     private val videoTileController: VideoTileController,
     private val activeSpeakerDetector: ActiveSpeakerDetectorFacade
 ) : AudioVideoFacade {
@@ -73,6 +75,7 @@ class DefaultAudioVideoFacade(
 
     override fun stop() {
         audioVideoController.stop()
+        deviceController.stopListening()
     }
 
     override fun startLocalVideo() {
@@ -125,6 +128,11 @@ class DefaultAudioVideoFacade(
 
     override fun chooseAudioDevice(mediaDevice: MediaDevice) {
         deviceController.chooseAudioDevice(mediaDevice)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.N)
+    override fun getActiveAudioDevice(): MediaDevice? {
+        return deviceController.getActiveAudioDevice()
     }
 
     override fun getActiveCamera(): MediaDevice? {

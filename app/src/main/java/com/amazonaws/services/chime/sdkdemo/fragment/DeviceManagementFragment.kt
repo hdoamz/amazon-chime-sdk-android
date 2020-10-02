@@ -38,6 +38,7 @@ class DeviceManagementFragment : Fragment(),
     private val audioDevices = mutableListOf<MediaDevice>()
     private lateinit var listener: DeviceManagementEventListener
     private lateinit var audioVideo: AudioVideoFacade
+    private var isAttached = false
 
     private val TAG = "DeviceManagementFragment"
 
@@ -70,6 +71,7 @@ class DeviceManagementFragment : Fragment(),
             logger.error(TAG, "$context must implement DeviceManagementEventListener.")
             throw ClassCastException("$context must implement DeviceManagementEventListener.")
         }
+        isAttached = true
     }
 
     override fun onCreateView(
@@ -132,6 +134,16 @@ class DeviceManagementFragment : Fragment(),
         }
     }
 
+    override fun onDetach() {
+        super.onDetach()
+        isAttached = false
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        audioVideo.removeDeviceChangeObserver(this)
+    }
+
     private fun createSpinnerAdapter(
         context: Context,
         list: List<MediaDevice>
@@ -140,6 +152,7 @@ class DeviceManagementFragment : Fragment(),
     }
 
     override fun onAudioDeviceChanged(freshAudioDeviceList: List<MediaDevice>) {
+        if (!isAttached) return
         populateDeviceList(freshAudioDeviceList)
     }
 }
